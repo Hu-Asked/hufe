@@ -36,8 +36,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err := tea.NewProgram(m).Run(); err != nil {
+	finalModel, err := tea.NewProgram(m).Run()
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
+	}
+
+	if uiModel, ok := finalModel.(*ui.Model); ok {
+		if dir := uiModel.ExitDir(); dir != "" {
+			fmt.Fprint(os.Stdout, dir)
+		}
 	}
 }
