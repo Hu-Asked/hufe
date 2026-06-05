@@ -3,9 +3,10 @@ package ui
 import (
 	"path/filepath"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"hufe/internal/explorer"
 	"hufe/internal/opener"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 type openFileResult struct {
@@ -55,7 +56,7 @@ func (m *Model) handleSelect() tea.Cmd {
 	return m.openFileCmd(entry.Path)
 }
 
-func (m *Model) goUp() {
+func (m *Model) loadPrev() {
 	parent := filepath.Dir(m.cwd)
 	if parent == m.cwd {
 		return

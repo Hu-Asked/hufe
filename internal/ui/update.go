@@ -33,8 +33,8 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "q", "ctrl+c":
 		return m, tea.Quit
-	case "backspace", "h":
-		m.goUp()
+	case "h":
+		m.loadPrev()
 		return m, nil
 	case "l":
 		return m, m.handleSelect()
@@ -45,11 +45,4 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
 	return m, cmd
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }

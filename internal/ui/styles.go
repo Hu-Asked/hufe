@@ -70,7 +70,7 @@ func renderStatusLine(path string, status string, statusIsError bool) string {
 	keyHints := strings.Join([]string{
 		keyHint("Enter", "cd+quit"),
 		keyHint("l", "open"),
-		keyHint("Backspace/h", "up"),
+		keyHint("h", "up"),
 		keyHint("q", "quit"),
 	}, "  ")
 

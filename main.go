@@ -17,13 +17,13 @@ func main() {
 
 	absPath, err := filepath.Abs(startPath)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		// fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
 	info, err := os.Stat(absPath)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		// fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	if !info.IsDir() {
@@ -32,19 +32,20 @@ func main() {
 
 	m, err := ui.NewModel(absPath)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		// fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	finalModel, err := tea.NewProgram(m).Run()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	if _, err := tea.NewProgram(m).Run(); err != nil {
+		// fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	if uiModel, ok := finalModel.(*ui.Model); ok {
-		if dir := uiModel.ExitDir(); dir != "" {
-			fmt.Fprint(os.Stdout, dir)
+	if dir := m.ExitDir(); dir != "" {
+		if exportFile := os.Getenv("HUFE_OUTPUT"); exportFile != "" {
+			_ = os.WriteFile(exportFile, []byte(dir), 0644)
+		} else {
+			fmt.Println(dir)
 		}
 	}
 }
