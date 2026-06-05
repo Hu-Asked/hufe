@@ -14,6 +14,7 @@ type Model struct {
 	statusIsError bool
 	exitDir       string
 	boxWidth	  int
+	jumpMulti	  int
 }
 
 func NewModel(startDir string) (*Model, error) {

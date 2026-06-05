@@ -47,6 +47,12 @@ func (m *Model) handleSelect() tea.Cmd {
 
 	entry := selectedItem.entry
 	if entry.IsDir {
+		currentParent := filepath.Clean(filepath.Dir(m.cwd));
+		selectedDir := filepath.Clean(entry.Path)
+		if selectedDir == currentParent {
+			return nil
+		}
+
 		if err := m.loadDir(entry.Path); err != nil {
 			m.setError(err)
 		}
@@ -92,3 +98,7 @@ func (m *Model) openFileCmd(path string) tea.Cmd {
 		return openFileResult{err: err}
 	})
 }
+
+// func (m *Model) copyTo (pathToCopy string, targetDirectory string) tea.Cmd {
+//
+// }

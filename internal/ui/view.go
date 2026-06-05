@@ -13,5 +13,5 @@ func (m *Model) View() string {
 }
 
 func (m *Model) statusLine() string {
-	return renderStatusLine(m.cwd, m.status, m.statusIsError)
+	return renderStatusLine(m.cwd, m.status, m.statusIsError, m.jumpMulti)
 }

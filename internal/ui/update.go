@@ -35,6 +35,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
+	case "0", "1", "2", "3", "4", "5", "6", "7", "8", "9":
+		if msg.String() == "0" && m.jumpMulti == 0 {
+			m.list.Select(0);
+			return m, nil
+		}
+		m.jumpMulti = m.jumpMulti * 10 + int(msg.String()[0] - '0')
+		return m, nil
 	case "q", "ctrl+c":
 		return m, tea.Quit
 	case "h":
@@ -44,6 +51,29 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.handleSelect()
 	case "enter":
 		return m, m.handleEnter()
+	case "esc":
+		m.jumpMulti = 0;
+		return m, nil
+	case "k":
+		steps := 1
+		if m.jumpMulti > 0 {
+			steps = m.jumpMulti
+			m.jumpMulti = 0
+		}
+		target := m.list.Index() - steps
+		target = max(0, target)
+		m.list.Select(target)
+		return m, nil
+	case "j":
+		steps := 1
+		if m.jumpMulti > 0 {
+			steps = m.jumpMulti
+			m.jumpMulti = 0
+		}
+		target := m.list.Index() + steps
+		target = min(len(m.list.Items()) - 1, target)
+		m.list.Select(target)
+		return m, nil
 	}
 
 	var cmd tea.Cmd
