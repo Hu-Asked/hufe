@@ -112,7 +112,7 @@ func renderStatusLine(path string, status string, statusIsError bool, jumpMulti 
 		keyHint("q", "quit"),
 	}, "  ")
 
-	base := fmt.Sprintf("%s  |  %s  | %d", pathStyle.Render(path), keyHints, jumpMulti)
+	base := fmt.Sprintf("%s  |  %s  |  %d", pathStyle.Render(path), keyHints, jumpMulti)
 	if status == "" {
 		return base
 	}

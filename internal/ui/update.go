@@ -45,9 +45,11 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "q", "ctrl+c":
 		return m, tea.Quit
 	case "h":
+		m.jumpMulti = 0
 		m.loadPrev()
 		return m, nil
 	case "l":
+		m.jumpMulti = 0
 		return m, m.handleSelect()
 	case "enter":
 		return m, m.handleEnter()
@@ -74,6 +76,8 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		target = min(len(m.list.Items()) - 1, target)
 		m.list.Select(target)
 		return m, nil
+	default:
+		m.jumpMulti = 0
 	}
 
 	var cmd tea.Cmd

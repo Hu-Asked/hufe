@@ -3,6 +3,8 @@ export HUFE_OUTPUT=$(mktemp)
 
 /home/hueth/documents/hufe/hufe
 
+clear
+
 if [ -s "$HUFE_OUTPUT" ]; then
     TARGET_DIR=$(cat "$HUFE_OUTPUT")
     rm "$HUFE_OUTPUT"
@@ -20,3 +22,4 @@ else
     echo "Error: Invalid path '$TARGET_DIR'"
     return 1
 fi
+
