@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/charmbracelet/bubbles/list"
 	"hufe/internal/explorer"
@@ -14,6 +13,7 @@ type Model struct {
 	status        string
 	statusIsError bool
 	exitDir       string
+	boxWidth	  int
 }
 
 func NewModel(startDir string) (*Model, error) {
@@ -33,7 +33,7 @@ func NewModel(startDir string) (*Model, error) {
 }
 
 func (m *Model) updateTitle() {
-	base := filepath.Base(m.cwd)
+	base := m.cwd
 	if base == "" {
 		base = m.cwd
 	}

@@ -1,7 +1,15 @@
 package ui
 
+import "github.com/charmbracelet/lipgloss"
+
 func (m *Model) View() string {
-	return m.list.View() + "\n" + m.statusLine()
+	listContent := m.list.View();
+	
+	box := boxStyle.
+		Width(m.boxWidth).
+		Render(listContent)
+
+	return lipgloss.JoinVertical(lipgloss.Left, box, m.statusLine());
 }
 
 func (m *Model) statusLine() string {

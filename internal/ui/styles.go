@@ -8,29 +8,67 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var (
-	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("230")).
-			Background(lipgloss.Color("62")).
-			Padding(0, 1)
+type colorScheme struct {
+	HeaderForeground          lipgloss.Color
+	HeaderBackground          lipgloss.Color
+	BoxBorder                 lipgloss.Color
+	ListItemForeground        lipgloss.Color
+	ListItemDimForeground     lipgloss.Color
+	ListSelectedForeground    lipgloss.Color
+	ListSelectedBackground    lipgloss.Color
+	ListFilterMatchForeground lipgloss.Color
+	PathForeground            lipgloss.Color
+	KeyForeground             lipgloss.Color
+	HintForeground            lipgloss.Color
+	StatusForeground          lipgloss.Color
+	StatusErrorForeground     lipgloss.Color
+}
 
-	titleBarStyle = lipgloss.NewStyle().Padding(0, 0, 1, 1)
+var colors = colorScheme{
+	HeaderForeground:          lipgloss.Color("230"),
+	HeaderBackground:          lipgloss.Color("62"),
+	BoxBorder:                 lipgloss.Color("238"),
+	ListItemForeground:        lipgloss.Color("252"),
+	ListItemDimForeground:     lipgloss.Color("240"),
+	ListSelectedForeground:    lipgloss.Color("229"),
+	ListSelectedBackground:    lipgloss.Color("57"),
+	ListFilterMatchForeground: lipgloss.Color("205"),
+	PathForeground:            lipgloss.Color("75"),
+	KeyForeground:             lipgloss.Color("205"),
+	HintForeground:            lipgloss.Color("244"),
+	StatusForeground:          lipgloss.Color("244"),
+	StatusErrorForeground:     lipgloss.Color("196"),
+}
+
+var (
+	headerTitleStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(colors.HeaderForeground).
+				Background(colors.HeaderBackground).
+				Padding(0, 1)
+
+	headerBarStyle = lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder(), false, false, true, false).
+			BorderForeground(colors.BoxBorder)
+
+	boxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(colors.BoxBorder)
 
 	pathStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("75")).
+			Foreground(colors.PathForeground).
 			Bold(true)
 
 	keyStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("205")).
+			Foreground(colors.KeyForeground).
 			Bold(true)
 
-	hintStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	hintStyle = lipgloss.NewStyle().Foreground(colors.HintForeground)
 
-	statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	statusStyle = lipgloss.NewStyle().Foreground(colors.StatusForeground)
 
 	statusErrorStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("196")).
+				Foreground(colors.StatusErrorForeground).
 				Bold(true)
 )
 
@@ -46,20 +84,20 @@ func newList(items []list.Item) list.Model {
 	l.SetShowHelp(false)
 	l.SetShowStatusBar(false)
 	l.SetShowPagination(false)
-	l.Styles.Title = titleStyle
-	l.Styles.TitleBar = titleBarStyle
+	l.Styles.Title = headerTitleStyle
+	l.Styles.TitleBar = headerBarStyle
 
 	return l
 }
 
 func itemStyles() list.DefaultItemStyles {
 	styles := list.NewDefaultItemStyles()
-	styles.NormalTitle = styles.NormalTitle.Foreground(lipgloss.Color("252"))
-	styles.DimmedTitle = styles.DimmedTitle.Foreground(lipgloss.Color("240"))
-	styles.FilterMatch = styles.FilterMatch.Foreground(lipgloss.Color("205")).Bold(true)
+	styles.NormalTitle = styles.NormalTitle.Foreground(colors.ListItemForeground)
+	styles.DimmedTitle = styles.DimmedTitle.Foreground(colors.ListItemDimForeground)
+	styles.FilterMatch = styles.FilterMatch.Foreground(colors.ListFilterMatchForeground).Bold(true)
 	styles.SelectedTitle = styles.SelectedTitle.
-		Foreground(lipgloss.Color("229")).
-		Background(lipgloss.Color("57")).
+		Foreground(colors.ListSelectedForeground).
+		Background(colors.ListSelectedBackground).
 		Bold(true)
 	styles.SelectedDesc = styles.SelectedTitle
 

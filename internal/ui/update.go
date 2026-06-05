@@ -13,7 +13,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	case tea.WindowSizeMsg:
-		m.list.SetSize(msg.Width, max(0, msg.Height-1))
+		m.boxWidth = msg.Width / 2
+		listHeight := msg.Height - 2
+		listWidth := m.boxWidth - 1
+		m.list.SetSize(listWidth, max(0, listHeight - 1))
+		m.list.Styles.TitleBar = headerBarStyle.Width(listWidth);
 		return m, nil
 	case openFileResult:
 		if msg.err != nil {
