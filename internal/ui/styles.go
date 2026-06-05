@@ -73,12 +73,12 @@ var (
 )
 
 func newList(items []list.Item) list.Model {
-	delegate := list.NewDefaultDelegate()
-	delegate.ShowDescription = false
-	delegate.SetSpacing(0)
-	delegate.Styles = itemStyles()
+	delegate := relativeLineDelegate{
+		styles: itemStyles(), 
+	}
 
 	l := list.New(items, delegate, 0, 0)
+
 	l.SetShowFilter(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
@@ -104,15 +104,15 @@ func itemStyles() list.DefaultItemStyles {
 	return styles
 }
 
-func renderStatusLine(path string, status string, statusIsError bool) string {
+func renderStatusLine(path string, status string, statusIsError bool, jumpMulti int) string {
 	keyHints := strings.Join([]string{
 		keyHint("Enter", "cd+quit"),
 		keyHint("l", "open"),
-		keyHint("h", "up"),
+		keyHint("h", "prev"),
 		keyHint("q", "quit"),
 	}, "  ")
 
-	base := fmt.Sprintf("%s  |  %s", pathStyle.Render(path), keyHints)
+	base := fmt.Sprintf("%s  |  %s  | %d", pathStyle.Render(path), keyHints, jumpMulti)
 	if status == "" {
 		return base
 	}
