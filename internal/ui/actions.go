@@ -4,7 +4,6 @@ import (
 	"path/filepath"
 
 	"hufe/internal/explorer"
-	"hufe/internal/opener"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -58,7 +57,7 @@ func (m *Model) handleSelect() tea.Cmd {
 		return nil
 	}
 
-	return m.openFileCmd(entry.Path)
+	return nil // m.openFileCmd(entry.Path)
 }
 
 func (m *Model) loadPrev() {
@@ -86,17 +85,17 @@ func (m *Model) loadDir(path string) error {
 	return nil
 }
 
-func (m *Model) openFileCmd(path string) tea.Cmd {
-	cmd, err := opener.Command(path)
-	if err != nil {
-		m.setError(err)
-		return nil
-	}
-
-	return tea.ExecProcess(cmd, func(err error) tea.Msg {
-		return openFileResult{err: err}
-	})
-}
+// func (m *Model) openFileCmd(path string) tea.Cmd {
+// 	cmd, err := opener.Command(path)
+// 	if err != nil {
+// 		m.setError(err)
+// 		return nil
+// 	}
+//
+// 	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+// 		return openFileResult{err: err}
+// 	})
+// }
 
 // func (m *Model) copyTo (pathToCopy string, targetDirectory string) tea.Cmd {
 //
