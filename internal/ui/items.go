@@ -23,6 +23,9 @@ func (i item) Description() string {
 }
 
 func (i item) FilterValue() string {
+	if i.entry.IsDir && i.entry.Name != ".." {
+		return i.entry.Name + string(os.PathSeparator)
+	}
 	return i.entry.Name
 }
 
