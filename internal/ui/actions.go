@@ -25,12 +25,11 @@ func (m *Model) handleEnter() tea.Cmd {
 	}
 
 	entry := selectedItem.entry
+	m.exitDir = entry.Path
 	if !entry.IsDir {
-		m.setErrorMessage("not a directory")
-		return nil
+		m.exitDir = filepath.Dir(entry.Path)
 	}
 
-	m.exitDir = entry.Path
 	return tea.Quit
 }
 
