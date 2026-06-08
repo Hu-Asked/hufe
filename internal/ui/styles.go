@@ -96,8 +96,8 @@ func itemStyles() list.DefaultItemStyles {
 	styles.DimmedTitle = styles.DimmedTitle.Foreground(colors.ListItemDimForeground)
 	styles.FilterMatch = styles.FilterMatch.Foreground(colors.ListFilterMatchForeground).Bold(true)
 	styles.SelectedTitle = styles.SelectedTitle.
-		Foreground(colors.ListSelectedForeground).
-		Background(colors.ListSelectedBackground).
+		// Foreground(colors.ListSelectedForeground).
+		// Background(colors.ListSelectedBackground).
 		Bold(true)
 	styles.SelectedDesc = styles.SelectedTitle
 

@@ -15,7 +15,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.boxWidth = msg.Width / 2
 		listHeight := msg.Height - 2
-		listWidth := m.boxWidth - 1
+		listWidth := m.boxWidth
 		m.list.SetSize(listWidth, max(0, listHeight - 1))
 		m.list.Styles.TitleBar = headerBarStyle.Width(listWidth);
 		return m, nil

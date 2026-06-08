@@ -60,7 +60,7 @@ func (d relativeLineDelegate) Render(w io.Writer, m list.Model, index int, listI
         textRendered := textStyle.Render(text)
         textWidth := lipgloss.Width(textRendered)
         itemIconRendered := iconStyle.Background(selectedBg).Render(itemIcon.Icon)
-        actualIconWidth := lipgloss.Width(itemIconRendered)
+        actualIconWidth := lipgloss.Width(itemIconRendered) + 1
 
         paddingWidth := totalWidth - numWidth - textWidth - actualIconWidth
 		paddingWidth = max(0, paddingWidth)
