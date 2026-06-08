@@ -39,45 +39,52 @@ func (d relativeLineDelegate) Render(w io.Writer, m list.Model, index int, listI
 	var renderedLine string
 
 	itemIcon := devicons.IconForPath(listItem.(item).entry.Path)
-	iconColor := lipgloss.Color(itemIcon.Color)
-	iconStyle := lipgloss.NewStyle().Foreground(iconColor)
+	iconStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(itemIcon.Color))
 
 	totalWidth := m.Width()
-	numWidth := lipgloss.Width(numStr)
-	iconWidth := lipgloss.Width(itemIcon.Icon)
-	maxTextWidth := totalWidth - numWidth - iconWidth
-	maxTextWidth = min(0, maxTextWidth)
+    iconWidth := lipgloss.Width(itemIcon.Icon)
 
-	if index == currentIdx {
-		selectedBg := d.styles.SelectedTitle.GetBackground()
+    if index == currentIdx {
+        selectedBg := d.styles.SelectedTitle.GetBackground()
+        selectedFg := d.styles.SelectedTitle.GetForeground()
 
-		textStyle := d.styles.SelectedTitle.MaxWidth(maxTextWidth).Inline(true)
-		textRendered := textStyle.Render(text)
+        numRendered := d.styles.SelectedTitle.Render(numStr)
+        numWidth := lipgloss.Width(numRendered)
 
-		paddingWidth := totalWidth - numWidth - lipgloss.Width(textRendered) - iconWidth
+        textStyle := lipgloss.NewStyle().
+            Background(selectedBg).
+            Foreground(selectedFg).
+            MaxWidth(totalWidth - numWidth - iconWidth).
+            Inline(true)
+        
+        textRendered := textStyle.Render(text)
+        textWidth := lipgloss.Width(textRendered)
+        itemIconRendered := iconStyle.Background(selectedBg).Render(itemIcon.Icon)
+        actualIconWidth := lipgloss.Width(itemIconRendered)
+
+        paddingWidth := totalWidth - numWidth - textWidth - actualIconWidth
 		paddingWidth = max(0, paddingWidth)
-		spaces := strings.Repeat(" ", paddingWidth)
+        spaces := strings.Repeat(" ", paddingWidth)
+        spacesRendered := lipgloss.NewStyle().Background(selectedBg).Render(spaces)
 
-		numRendered := d.styles.SelectedTitle.Render(numStr)
-		spacesRendered := lipgloss.NewStyle().Background(selectedBg).Render(spaces)
-		itemIconRendered := iconStyle.Background(selectedBg).Render(itemIcon.Icon)
+        renderedLine = numRendered + textRendered + spacesRendered + itemIconRendered
+    } else {
+        numRendered := lipgloss.NewStyle().Foreground(colors.HintForeground).Render(numStr)
+        numWidth := lipgloss.Width(numRendered)
 
-		renderedLine = numRendered + textRendered + spacesRendered + itemIconRendered
-	} else {
-		textStyle := d.styles.NormalTitle.MaxWidth(maxTextWidth).Inline(true)
-		textRendered := textStyle.Render(text)
+        textStyle := d.styles.NormalTitle.MaxWidth(totalWidth - numWidth - iconWidth).Inline(true)
+        textRendered := textStyle.Render(text)
+        textWidth := lipgloss.Width(textRendered)
 
-		paddingWidth := totalWidth - numWidth - lipgloss.Width(textRendered) - iconWidth
+        itemIconRendered := iconStyle.Render(itemIcon.Icon)
+        actualIconWidth := lipgloss.Width(itemIconRendered) + 1
+
+        paddingWidth := totalWidth - numWidth - textWidth - actualIconWidth
 		paddingWidth = max(0, paddingWidth)
-		spaces := strings.Repeat(" ", paddingWidth)
+        spaces := strings.Repeat(" ", paddingWidth)
 
-		numStyle := lipgloss.NewStyle().Foreground(colors.HintForeground)
-		numRendered := numStyle.Render(numStr)
-		itemIconRendered := iconStyle.Render(itemIcon.Icon)
-
-		renderedLine = numRendered + textRendered + spaces + itemIconRendered
-	}
-
+        renderedLine = numRendered + textRendered + spaces + itemIconRendered
+    }
 
 	fmt.Fprint(w, renderedLine)
 }
