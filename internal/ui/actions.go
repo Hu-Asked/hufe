@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"errors"
+	"os"
 	"path/filepath"
 
 	"hufe/internal/explorer"
@@ -10,6 +12,49 @@ import (
 
 type openFileResult struct {
 	err error
+}
+
+func (m *Model) handleCopy() {
+	selected := m.list.SelectedItem()
+	if selected == nil {
+		m.setError(errors.New("Error: item does not exist"))
+		return
+	}
+
+	selectedItem, ok := selected.(item)
+	if !ok {
+		m.setError(errors.New("Error: item not ok"))
+		return
+	}
+	
+	entry := selectedItem.entry
+	m.pathToCopy = entry.Path
+	m.setError(errors.New(m.pathToCopy))
+}
+
+func (m *Model) handlePaste() {
+	selected := m.list.SelectedItem()
+	if m.pathToCopy == "" {
+		return
+	}
+	if selected == nil {
+		m.setError(errors.New("Error: destination does not exist"))
+		return
+	}
+
+	selectedItem, ok := selected.(item)
+	if !ok {
+		m.setError(errors.New("Error: destination not ok"))
+		return
+	}
+	if selectedItem.entry.IsDir && selectedItem.entry.Name != ".." {
+		finalTargetDirectory := filepath.Join(filepath.Dir(selectedItem.entry.Path), filepath.Base(m.pathToCopy))
+		err := os.CopyFS(finalTargetDirectory, os.DirFS(m.pathToCopy))
+		if err != nil {
+			m.setError(err)
+			return
+		}
+	}
 }
 
 func (m *Model) handleEnter() tea.Cmd {

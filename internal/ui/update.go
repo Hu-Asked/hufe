@@ -76,6 +76,12 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		target = min(len(m.list.Items()) - 1, target)
 		m.list.Select(target)
 		return m, nil
+	case "y":
+		m.handleCopy()
+		return m, nil
+	case "p":
+		m.handlePaste()
+		return m, nil
 	default:
 		m.jumpMulti = 0
 	}

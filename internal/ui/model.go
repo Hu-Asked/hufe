@@ -15,6 +15,7 @@ type Model struct {
 	exitDir       string
 	boxWidth	  int
 	jumpMulti	  int
+	pathToCopy    string
 }
 
 func NewModel(startDir string) (*Model, error) {
