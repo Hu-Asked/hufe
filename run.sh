@@ -17,9 +17,11 @@ fi
 
 if [[ -d "$TARGET_DIR" ]]; then
     cd "$TARGET_DIR"
+    unset TARGET_DIR
 else
     echo "$TARGET_DIR"
     echo "Error: Invalid path '$TARGET_DIR'"
+    unset TARGET_DIR
     return 1
 fi
 
