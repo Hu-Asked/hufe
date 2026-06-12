@@ -10,17 +10,17 @@ if [ -s "$HUFE_OUTPUT" ]; then
     rm "$HUFE_OUTPUT"
 fi
 
-if [[ -z "$TARGET_DIR" ]]; then
-    echo "Error: No path returned"
-    return 1
-fi
+# if [[ -z "$TARGET_DIR" ]]; then
+#     echo "Error: No path returned"
+#     return 1
+# fi
 
 if [[ -d "$TARGET_DIR" ]]; then
     cd "$TARGET_DIR"
     unset TARGET_DIR
 else
-    echo "$TARGET_DIR"
-    echo "Error: Invalid path '$TARGET_DIR'"
+    # echo "$TARGET_DIR"
+    # echo "Error: Invalid path '$TARGET_DIR'"
     unset TARGET_DIR
     return 1
 fi
