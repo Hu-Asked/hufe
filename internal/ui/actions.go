@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"errors"
 	"os"
 	"path/filepath"
@@ -29,7 +30,7 @@ func (m *Model) handleCopy() {
 	
 	entry := selectedItem.entry
 	m.pathToCopy = entry.Path
-	m.setError(errors.New(m.pathToCopy))
+	m.setStatus(fmt.Sprintf("Copied %s", m.pathToCopy), false)
 }
 
 func (m *Model) handlePaste() {
@@ -41,19 +42,18 @@ func (m *Model) handlePaste() {
 		m.setError(errors.New("Error: destination does not exist"))
 		return
 	}
-
-	selectedItem, ok := selected.(item)
-	if !ok {
-		m.setError(errors.New("Error: destination not ok"))
+	finalTarget := filepath.Join(m.cwd, filepath.Base(m.pathToCopy))
+	err := os.CopyFS(finalTarget, os.DirFS(m.pathToCopy))
+	if err != nil {
+		m.setError(err)
 		return
 	}
-	if selectedItem.entry.IsDir && selectedItem.entry.Name != ".." {
-		finalTargetDirectory := filepath.Join(filepath.Dir(selectedItem.entry.Path), filepath.Base(m.pathToCopy))
-		err := os.CopyFS(finalTargetDirectory, os.DirFS(m.pathToCopy))
-		if err != nil {
-			m.setError(err)
-			return
-		}
+	m.updateTitle()
+	m.clearStatus()
+	entries, err := explorer.ReadEntries(m.cwd)
+	m.list.SetItems(itemsFromEntries(entries))
+	if err != nil {
+		return
 	}
 }
 
@@ -70,6 +70,9 @@ func (m *Model) handleEnter() tea.Cmd {
 
 	entry := selectedItem.entry
 	m.exitDir = entry.Path
+	if entry.Name == ".." {
+		m.exitDir = m.cwd
+	}
 	if !entry.IsDir {
 		m.exitDir = filepath.Dir(entry.Path)
 	}
