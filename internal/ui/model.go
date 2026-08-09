@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	"hufe/internal/explorer"
 )
 
@@ -13,9 +14,15 @@ type Model struct {
 	status        string
 	statusIsError bool
 	exitDir       string
-	boxWidth	  int
-	jumpMulti	  int
-	pathToCopy    string
+	boxWidth        int
+	jumpMulti       int
+	pathToCopy      string
+	
+	searchInput     textinput.Model
+	searchMode      bool
+	recursiveSearch bool
+	allEntries      []explorer.Entry
+	searchFiles     []FileEntry
 }
 
 func NewModel(startDir string) (*Model, error) {
@@ -25,9 +32,15 @@ func NewModel(startDir string) (*Model, error) {
 	}
 
 	l := newList(itemsFromEntries(entries))
+	ti := textinput.New()
+	ti.Placeholder = "Search..."
+	ti.CharLimit = 156
+	ti.Width = 20
+
 	m := &Model{
-		list: l,
-		cwd:  startDir,
+		list:        l,
+		cwd:         startDir,
+		searchInput: ti,
 	}
 	m.updateTitle()
 

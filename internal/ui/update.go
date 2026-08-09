@@ -34,7 +34,32 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.searchMode {
+		switch msg.String() {
+		case "esc":
+			m.cancelSearch()
+			m.loadDir(m.cwd)
+			return m, nil
+		case "enter":
+			cmd := m.handleSelect()
+			return m, cmd
+		case "up", "down":
+			var cmd tea.Cmd
+			m.list, cmd = m.list.Update(msg)
+			return m, cmd
+		default:
+			cmd := m.handleSearchInput(msg)
+			return m, cmd
+		}
+	}
+
 	switch msg.String() {
+	case "/":
+		m.initSearch(false)
+		return m, nil
+	case "?":
+		m.initSearch(true)
+		return m, nil
 	case "0", "1", "2", "3", "4", "5", "6", "7", "8", "9":
 		if msg.String() == "0" && m.jumpMulti == 0 {
 			m.list.Select(0);

@@ -9,7 +9,14 @@ func (m *Model) View() string {
 		Width(m.boxWidth).
 		Render(listContent)
 
-	return lipgloss.JoinVertical(lipgloss.Left, box, m.statusLine());
+	var bottom string
+	if m.searchMode {
+		bottom = m.searchInput.View()
+	} else {
+		bottom = m.statusLine()
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, box, bottom)
 }
 
 func (m *Model) statusLine() string {
