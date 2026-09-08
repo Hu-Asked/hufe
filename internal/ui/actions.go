@@ -101,8 +101,12 @@ func (m *Model) handleSelect() tea.Cmd {
 			return nil
 		}
 
+		previousDir := m.cwd
+		previousIndex := m.list.Index()
 		if err := m.loadDir(entry.Path); err != nil {
 			m.setError(err)
+		} else {
+			m.pushHistory(previousDir, previousIndex)
 		}
 		return nil
 	} else if m.searchMode {
@@ -120,9 +124,24 @@ func (m *Model) loadPrev() {
 	if parent == m.cwd {
 		return
 	}
+
+	previousDir := m.cwd
+	restoreIndex, hasHistory := m.popHistory(parent)
 	if err := m.loadDir(parent); err != nil {
+		if hasHistory {
+			m.pushHistory(parent, restoreIndex)
+		}
 		m.setError(err)
+		return
 	}
+
+	if hasHistory {
+		m.setItem(restoreIndex)
+	} else {
+		m.selectPath(previousDir)
+	}
+	m.previewPath = ""
+	m.refreshPreview()
 }
 
 func (m *Model) loadDir(path string) error {
@@ -135,7 +154,7 @@ func (m *Model) loadDir(path string) error {
 	m.updateTitle()
 	m.clearStatus()
 	m.list.SetItems(itemsFromEntries(entries))
-	m.list.Select(0)
+	m.setItem(0)
 	m.previewPath = ""
 	m.refreshPreview()
 
@@ -144,6 +163,18 @@ func (m *Model) loadDir(path string) error {
 	}
 
 	return nil
+}
+
+func (m *Model) selectPath(path string) bool {
+	wanted := filepath.Clean(path)
+	for index, listItem := range m.list.Items() {
+		entryItem, ok := listItem.(item)
+		if ok && filepath.Clean(entryItem.entry.Path) == wanted {
+			m.setItem(index)
+			return true
+		}
+	}
+	return false
 }
 
 func (m *Model) initSearch(recursive bool) {
@@ -200,7 +231,7 @@ func (m *Model) handleSearchInput(msg tea.Msg) tea.Cmd {
 	}
 
 	m.list.SetItems(itemsFromEntries(filtered))
-	m.list.Select(0)
+	m.setItem(0)
 	return cmd
 }
 

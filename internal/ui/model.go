@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -17,6 +18,7 @@ type Model struct {
 	boxWidth      int
 	jumpMulti     int
 	pathToCopy    string
+	history       []selectionHistoryEntry
 
 	previewWidth   int
 	previewHeight  int
@@ -31,6 +33,11 @@ type Model struct {
 	recursiveSearch bool
 	allEntries      []explorer.Entry
 	searchFiles     []FileEntry
+}
+
+type selectionHistoryEntry struct {
+	directory string
+	index     int
 }
 
 func NewModel(startDir string) (*Model, error) {
@@ -54,6 +61,28 @@ func NewModel(startDir string) (*Model, error) {
 	m.refreshPreview()
 
 	return m, nil
+}
+
+func (m *Model) pushHistory(directory string, index int) {
+	m.history = append(m.history, selectionHistoryEntry{
+		directory: filepath.Clean(directory),
+		index:     index,
+	})
+}
+
+func (m *Model) popHistory(directory string) (int, bool) {
+	if len(m.history) == 0 {
+		return 0, false
+	}
+
+	index := len(m.history) - 1
+	element := m.history[index]
+	if element.directory != filepath.Clean(directory) {
+		return 0, false
+	}
+
+	m.history = m.history[:index]
+	return element.index, true
 }
 
 func (m *Model) updateTitle() {
@@ -84,4 +113,13 @@ func (m *Model) setError(err error) {
 
 func (m *Model) setErrorMessage(message string) {
 	m.setStatus(fmt.Sprintf("Error: %s", message), true)
+}
+
+func (m *Model) setItem(index int) {
+	itemCount := len(m.list.Items())
+	if itemCount == 0 {
+		return
+	}
+	index = max(0, min(index, itemCount-1))
+	m.list.Select(index)
 }

@@ -66,7 +66,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "0", "1", "2", "3", "4", "5", "6", "7", "8", "9":
 		if msg.String() == "0" && m.jumpMulti == 0 {
-			m.list.Select(0)
+			m.setItem(0)
 			return m, nil
 		}
 		m.jumpMulti = m.jumpMulti*10 + int(msg.String()[0]-'0')
@@ -93,7 +93,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		target := m.list.Index() - steps
 		target = max(0, target)
-		m.list.Select(target)
+		m.setItem(target)
 		return m, nil
 	case "j":
 		steps := 1
@@ -103,7 +103,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		target := m.list.Index() + steps
 		target = min(len(m.list.Items())-1, target)
-		m.list.Select(target)
+		m.setItem(target)
 		return m, nil
 	case "y":
 		m.handleCopy()
