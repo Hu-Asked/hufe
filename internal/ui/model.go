@@ -14,10 +14,18 @@ type Model struct {
 	status        string
 	statusIsError bool
 	exitDir       string
-	boxWidth        int
-	jumpMulti       int
-	pathToCopy      string
-	
+	boxWidth      int
+	jumpMulti     int
+	pathToCopy    string
+
+	previewWidth   int
+	previewHeight  int
+	previewPath    string
+	previewName    string
+	previewIsDir   bool
+	previewEntries []explorer.Entry
+	previewErr     error
+
 	searchInput     textinput.Model
 	searchMode      bool
 	recursiveSearch bool
@@ -43,6 +51,7 @@ func NewModel(startDir string) (*Model, error) {
 		searchInput: ti,
 	}
 	m.updateTitle()
+	m.refreshPreview()
 
 	return m, nil
 }

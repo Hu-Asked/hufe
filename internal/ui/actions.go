@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -27,7 +27,7 @@ func (m *Model) handleCopy() {
 		m.setError(errors.New("Error: item not ok"))
 		return
 	}
-	
+
 	entry := selectedItem.entry
 	m.pathToCopy = entry.Path
 	m.setStatus(fmt.Sprintf("Copied %s", m.pathToCopy), false)
@@ -55,6 +55,8 @@ func (m *Model) handlePaste() {
 	if err != nil {
 		return
 	}
+	m.previewPath = ""
+	m.refreshPreview()
 }
 
 func (m *Model) handleEnter() tea.Cmd {
@@ -134,7 +136,9 @@ func (m *Model) loadDir(path string) error {
 	m.clearStatus()
 	m.list.SetItems(itemsFromEntries(entries))
 	m.list.Select(0)
-	
+	m.previewPath = ""
+	m.refreshPreview()
+
 	if m.searchMode {
 		m.cancelSearch()
 	}
@@ -174,7 +178,7 @@ func (m *Model) initSearch(recursive bool) {
 func (m *Model) handleSearchInput(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	m.searchInput, cmd = m.searchInput.Update(msg)
-	
+
 	query := m.searchInput.Value()
 	if query == "" {
 		m.list.SetItems(itemsFromEntries(m.allEntries))
@@ -182,7 +186,7 @@ func (m *Model) handleSearchInput(msg tea.Msg) tea.Cmd {
 	}
 
 	results := FuzzyFind(query, m.searchFiles)
-	
+
 	pathMap := make(map[string]explorer.Entry)
 	for _, e := range m.allEntries {
 		pathMap[e.Path] = e
