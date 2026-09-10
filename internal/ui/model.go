@@ -20,13 +20,16 @@ type Model struct {
 	pathToCopy    string
 	history       []selectionHistoryEntry
 
-	previewWidth   int
-	previewHeight  int
-	previewPath    string
-	previewName    string
-	previewIsDir   bool
-	previewEntries []explorer.Entry
-	previewErr     error
+	previewWidth       int
+	previewHeight      int
+	previewPath        string
+	previewName        string
+	previewIsDir       bool
+	previewEntries     []explorer.Entry
+	previewFileLines   []string
+	previewTruncated   bool
+	previewUnsupported bool
+	previewErr         error
 
 	searchInput     textinput.Model
 	searchMode      bool

@@ -42,7 +42,7 @@ func (m *Model) previewView() string {
 		Width(m.previewWidth).
 		Render(headerTitleStyle.Render(title))
 
-	bodyHeight := max(0, m.previewHeight-1)
+	bodyHeight := max(0, m.previewHeight-lipgloss.Height(header))
 	if bodyHeight == 0 {
 		return header
 	}
@@ -59,11 +59,21 @@ func (m *Model) previewLines(height int) []string {
 	if m.list.SelectedItem() == nil {
 		return message("No selection", hintStyle)
 	}
-	if !m.previewIsDir {
-		return message("Select a directory to preview its contents", hintStyle)
-	}
 	if m.previewErr != nil {
-		return message(fmt.Sprintf("Unable to read directory: %v", m.previewErr), statusErrorStyle)
+		kind := "file"
+		if m.previewIsDir {
+			kind = "directory"
+		}
+		return message(fmt.Sprintf("Unable to read %s: %v", kind, m.previewErr), statusErrorStyle)
+	}
+	if !m.previewIsDir {
+		if m.previewUnsupported {
+			return message("Binary or non-text file", hintStyle)
+		}
+		if len(m.previewFileLines) == 0 {
+			return message("Empty file", hintStyle)
+		}
+		return m.previewTextLines(height)
 	}
 	if len(m.previewEntries) == 0 {
 		return message("Empty directory", hintStyle)
@@ -92,6 +102,33 @@ func (m *Model) previewLines(height int) []string {
 	if visible < len(m.previewEntries) {
 		remaining := len(m.previewEntries) - visible
 		lines = append(lines, hintStyle.Render(fmt.Sprintf("  … %d more", remaining)))
+	}
+
+	return lines
+}
+
+func (m *Model) previewTextLines(height int) []string {
+	showFooter := m.previewTruncated || len(m.previewFileLines) > height
+	visible := min(len(m.previewFileLines), height)
+	if showFooter && height > 0 {
+		visible = min(visible, height-1)
+	}
+
+	lineStyle := lipgloss.NewStyle().
+		Foreground(colors.ListItemForeground).
+		MaxWidth(max(0, m.previewWidth))
+	lines := make([]string, 0, height)
+	for _, line := range m.previewFileLines[:visible] {
+		line = strings.ReplaceAll(line, "\t", "    ")
+		lines = append(lines, lineStyle.Render("  "+line))
+	}
+
+	if showFooter {
+		message := fmt.Sprintf("  … %d more lines", len(m.previewFileLines)-visible)
+		if m.previewTruncated {
+			message = fmt.Sprintf("  … preview limited to %d KiB", maxPreviewBytes/1024)
+		}
+		lines = append(lines, hintStyle.MaxWidth(max(0, m.previewWidth)).Render(message))
 	}
 
 	return lines
