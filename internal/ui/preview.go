@@ -58,7 +58,7 @@ func (m *Model) refreshPreview() {
 		return
 	}
 
-	entries, err := explorer.ReadEntries(entry.Path)
+	entries, err := explorer.ReadEntriesWithHidden(entry.Path, m.showHidden)
 	if err != nil {
 		m.previewErr = err
 		return

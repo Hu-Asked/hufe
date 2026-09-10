@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 type Entry struct {
@@ -14,6 +16,10 @@ type Entry struct {
 }
 
 func ReadEntries(dir string) ([]Entry, error) {
+	return ReadEntriesWithHidden(dir, true)
+}
+
+func ReadEntriesWithHidden(dir string, showHidden bool) ([]Entry, error) {
 	items, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -24,6 +30,9 @@ func ReadEntries(dir string) ([]Entry, error) {
 
 	for _, item := range items {
 		name := item.Name()
+		if !showHidden && isHidden(name) {
+			continue
+		}
 		entry := Entry{
 			Name:  name,
 			Path:  filepath.Join(dir, name),
@@ -36,14 +45,8 @@ func ReadEntries(dir string) ([]Entry, error) {
 		}
 	}
 
-	sortEntries := func(entries []Entry) {
-		sort.Slice(entries, func(i, j int) bool {
-			return strings.ToLower(entries[i].Name) < strings.ToLower(entries[j].Name)
-		})
-	}
-
-	sortEntries(dirs)
-	sortEntries(files)
+	sortEntries(dirs, true)
+	sortEntries(files, false)
 
 	entries := make([]Entry, 0, len(dirs)+len(files)+1)
 	parent := filepath.Dir(dir)
@@ -62,6 +65,10 @@ func ReadEntries(dir string) ([]Entry, error) {
 }
 
 func ReadEntriesRecursive(dir string) ([]Entry, error) {
+	return ReadEntriesRecursiveWithHidden(dir, true)
+}
+
+func ReadEntriesRecursiveWithHidden(dir string, showHidden bool) ([]Entry, error) {
 	var dirs []Entry
 	var files []Entry
 
@@ -72,7 +79,13 @@ func ReadEntriesRecursive(dir string) ([]Entry, error) {
 		if path == dir {
 			return nil
 		}
-		
+		if !showHidden && isHidden(d.Name()) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
 		rel, errRel := filepath.Rel(dir, path)
 		if errRel != nil {
 			rel = filepath.Base(path)
@@ -97,14 +110,8 @@ func ReadEntriesRecursive(dir string) ([]Entry, error) {
 		return nil, err
 	}
 
-	sortEntries := func(entries []Entry) {
-		sort.Slice(entries, func(i, j int) bool {
-			return strings.ToLower(entries[i].Name) < strings.ToLower(entries[j].Name)
-		})
-	}
-
-	sortEntries(dirs)
-	sortEntries(files)
+	sortEntries(dirs, true)
+	sortEntries(files, false)
 
 	var entries []Entry
 	parent := filepath.Dir(dir)
@@ -115,9 +122,37 @@ func ReadEntriesRecursive(dir string) ([]Entry, error) {
 			IsDir: true,
 		})
 	}
-	
+
 	entries = append(entries, dirs...)
 	entries = append(entries, files...)
 
 	return entries, nil
+}
+
+func sortEntries(entries []Entry, capitalizedFirst bool) {
+	sort.Slice(entries, func(i, j int) bool {
+		if capitalizedFirst {
+			iCapitalized := startsWithCapital(entries[i].Name)
+			jCapitalized := startsWithCapital(entries[j].Name)
+			if iCapitalized != jCapitalized {
+				return iCapitalized
+			}
+		}
+
+		iName := strings.ToLower(entries[i].Name)
+		jName := strings.ToLower(entries[j].Name)
+		if iName != jName {
+			return iName < jName
+		}
+		return entries[i].Name < entries[j].Name
+	})
+}
+
+func startsWithCapital(name string) bool {
+	first, _ := utf8.DecodeRuneInString(name)
+	return unicode.IsUpper(first)
+}
+
+func isHidden(name string) bool {
+	return strings.HasPrefix(name, ".") && name != ".."
 }

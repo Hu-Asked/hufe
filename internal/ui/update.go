@@ -38,6 +38,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if msg.String() == "tab" {
+		m.jumpMulti = 0
+		m.toggleHidden()
+		return m, nil
+	}
+
 	if m.searchMode {
 		switch msg.String() {
 		case "esc":

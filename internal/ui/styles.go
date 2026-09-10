@@ -74,7 +74,7 @@ var (
 
 func newList(items []list.Item) list.Model {
 	delegate := relativeLineDelegate{
-		styles: itemStyles(), 
+		styles: itemStyles(),
 	}
 
 	l := list.New(items, delegate, 0, 0)
@@ -109,6 +109,7 @@ func renderStatusLine(path string, status string, statusIsError bool, jumpMulti 
 		keyHint("Enter", "cd+quit"),
 		keyHint("l", "open"),
 		keyHint("h", "prev"),
+		keyHint("Tab", "hidden"),
 		keyHint("q", "quit"),
 	}, "  ")
 

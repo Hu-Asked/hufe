@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 export HUFE_OUTPUT=$(mktemp)
 
-/home/hueth/documents/hufe/hufe
-
+~/Documents/hufe/hufe
 clear
 
 if [ -s "$HUFE_OUTPUT" ]; then

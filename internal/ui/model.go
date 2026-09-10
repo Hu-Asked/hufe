@@ -19,6 +19,7 @@ type Model struct {
 	jumpMulti     int
 	pathToCopy    string
 	history       []selectionHistoryEntry
+	showHidden    bool
 
 	previewWidth       int
 	previewHeight      int
@@ -44,7 +45,7 @@ type selectionHistoryEntry struct {
 }
 
 func NewModel(startDir string) (*Model, error) {
-	entries, err := explorer.ReadEntries(startDir)
+	entries, err := explorer.ReadEntriesWithHidden(startDir, false)
 	if err != nil {
 		return nil, err
 	}

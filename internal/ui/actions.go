@@ -50,7 +50,7 @@ func (m *Model) handlePaste() {
 	}
 	m.updateTitle()
 	m.clearStatus()
-	entries, err := explorer.ReadEntries(m.cwd)
+	entries, err := explorer.ReadEntriesWithHidden(m.cwd, m.showHidden)
 	m.list.SetItems(itemsFromEntries(entries))
 	if err != nil {
 		return
@@ -145,7 +145,7 @@ func (m *Model) loadPrev() {
 }
 
 func (m *Model) loadDir(path string) error {
-	entries, err := explorer.ReadEntries(path)
+	entries, err := explorer.ReadEntriesWithHidden(path, m.showHidden)
 	if err != nil {
 		return err
 	}
@@ -186,9 +186,9 @@ func (m *Model) initSearch(recursive bool) {
 	var entries []explorer.Entry
 	var err error
 	if recursive {
-		entries, err = explorer.ReadEntriesRecursive(m.cwd)
+		entries, err = explorer.ReadEntriesRecursiveWithHidden(m.cwd, m.showHidden)
 	} else {
-		entries, err = explorer.ReadEntries(m.cwd)
+		entries, err = explorer.ReadEntriesWithHidden(m.cwd, m.showHidden)
 	}
 
 	if err != nil {
@@ -206,14 +206,63 @@ func (m *Model) initSearch(recursive bool) {
 	m.list.SetItems(itemsFromEntries(entries))
 }
 
+func (m *Model) toggleHidden() {
+	showHidden := !m.showHidden
+	var entries []explorer.Entry
+	var err error
+	if m.searchMode && m.recursiveSearch {
+		entries, err = explorer.ReadEntriesRecursiveWithHidden(m.cwd, showHidden)
+	} else {
+		entries, err = explorer.ReadEntriesWithHidden(m.cwd, showHidden)
+	}
+	if err != nil {
+		m.setError(err)
+		return
+	}
+
+	selectedPath := ""
+	if selected, ok := m.list.SelectedItem().(item); ok {
+		selectedPath = selected.entry.Path
+	}
+	m.showHidden = showHidden
+
+	if m.searchMode {
+		m.allEntries = entries
+		paths := make([]string, len(entries))
+		for i, entry := range entries {
+			paths[i] = entry.Path
+		}
+		m.searchFiles = PreProcessPaths(paths)
+		m.applySearch(m.searchInput.Value())
+	} else {
+		m.list.SetItems(itemsFromEntries(entries))
+	}
+
+	if selectedPath == "" || !m.selectPath(selectedPath) {
+		m.setItem(0)
+	}
+	m.clearPreview()
+	m.refreshPreview()
+
+	if m.showHidden {
+		m.setStatus("Hidden files shown", false)
+	} else {
+		m.setStatus("Hidden files hidden", false)
+	}
+}
+
 func (m *Model) handleSearchInput(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	m.searchInput, cmd = m.searchInput.Update(msg)
 
-	query := m.searchInput.Value()
+	m.applySearch(m.searchInput.Value())
+	return cmd
+}
+
+func (m *Model) applySearch(query string) {
 	if query == "" {
 		m.list.SetItems(itemsFromEntries(m.allEntries))
-		return cmd
+		return
 	}
 
 	results := FuzzyFind(query, m.searchFiles)
@@ -232,7 +281,6 @@ func (m *Model) handleSearchInput(msg tea.Msg) tea.Cmd {
 
 	m.list.SetItems(itemsFromEntries(filtered))
 	m.setItem(0)
-	return cmd
 }
 
 func (m *Model) cancelSearch() {
