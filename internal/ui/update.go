@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"hufe/internal/fileops"
@@ -27,6 +29,26 @@ type pasteProgressMsg struct {
 }
 
 type pasteFinishedMsg struct {
+	result fileops.Result
+	err    error
+}
+
+type deletePhase uint8
+
+const (
+	deletePhaseConfirming deletePhase = iota
+	deletePhaseMoving
+)
+
+type deleteProgressMsg struct {
+	completedBytes int64
+	totalBytes     int64
+	completedItems int
+	totalItems     int
+	currentPath    string
+}
+
+type deleteFinishedMsg struct {
 	result fileops.Result
 	err    error
 }
@@ -64,6 +86,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, waitForPasteProgressCmd(m.pasteProgressCh)
 	case pasteFinishedMsg:
 		return m, m.finishPaste(msg)
+	case deleteProgressMsg:
+		if m.deletion == nil || m.deletion.phase != deletePhaseMoving {
+			return m, nil
+		}
+		m.deletion.completedBytes = msg.completedBytes
+		m.deletion.totalBytes = msg.totalBytes
+		m.deletion.completedItems = msg.completedItems
+		m.deletion.totalItems = msg.totalItems
+		m.deletion.currentPath = msg.currentPath
+		return m, waitForDeleteProgressCmd(m.deleteProgress)
+	case deleteFinishedMsg:
+		return m, m.finishDelete(msg)
 	case openFileResult:
 		if msg.err != nil {
 			m.setError(msg.err)
@@ -87,6 +121,16 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.paste.cancelling = true
 				m.paste.cancel()
 			}
+		}
+		return m, nil
+	}
+	if m.deletion != nil {
+		if m.deletion.phase == deletePhaseConfirming {
+			if msg.String() == "d" {
+				return m, m.confirmDelete()
+			}
+			m.deletion = nil
+			m.deleteProgress = nil
 		}
 		return m, nil
 	}
@@ -169,6 +213,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "p":
 		return m, m.handlePaste()
+	case "d":
+		m.handleDelete()
+		return m, nil
 	default:
 		m.jumpMulti = 0
 	}
@@ -176,6 +223,48 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
 	return m, cmd
+}
+
+func (m *Model) finishDelete(message deleteFinishedMsg) tea.Cmd {
+	state := m.deletion
+	if state == nil {
+		return nil
+	}
+	m.deletion = nil
+	m.deleteProgress = nil
+
+	clearCopyPath := message.err == nil && pathContainsSelection(state.source, m.pathToCopy)
+	if !clearCopyPath && m.pathToCopy != "" {
+		_, err := os.Lstat(m.pathToCopy)
+		clearCopyPath = errors.Is(err, os.ErrNotExist)
+	}
+	if clearCopyPath {
+		m.pathToCopy = ""
+	}
+	if err := m.loadDir(m.cwd); err != nil {
+		m.setError(err)
+		return nil
+	}
+	m.setItem(state.selectionIndex)
+	m.previewPath = ""
+	m.refreshPreview()
+	if message.err != nil {
+		m.setError(message.err)
+		return nil
+	}
+	m.setStatus(fmt.Sprintf("Moved %s to %s", filepath.Base(state.source), message.result.Target), false)
+	return nil
+}
+
+func pathContainsSelection(parent, child string) bool {
+	if child == "" {
+		return false
+	}
+	relative, err := filepath.Rel(filepath.Clean(parent), filepath.Clean(child))
+	if err != nil {
+		return false
+	}
+	return relative == "." || (relative != ".." && !strings.HasPrefix(relative, ".."+string(os.PathSeparator)))
 }
 
 func (m *Model) finishPaste(message pasteFinishedMsg) tea.Cmd {

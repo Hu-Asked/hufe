@@ -44,6 +44,10 @@ type manifestEntry struct {
 }
 
 func Copy(ctx context.Context, source, destinationDirectory string, report Reporter) (Result, error) {
+	return copyTo(ctx, source, destinationDirectory, "", ".hufe-paste-", report)
+}
+
+func copyTo(ctx context.Context, source, destinationDirectory, targetName, stagingPattern string, report Reporter) (Result, error) {
 	if err := ctx.Err(); err != nil {
 		return Result{}, err
 	}
@@ -68,7 +72,13 @@ func Copy(ctx context.Context, source, destinationDirectory string, report Repor
 		return Result{}, fmt.Errorf("destination is not a directory: %s", destinationDirectory)
 	}
 
-	target := filepath.Join(destinationDirectory, filepath.Base(source))
+	if targetName == "" {
+		targetName = filepath.Base(source)
+	}
+	if targetName == "" || targetName == "." || targetName == ".." || filepath.IsAbs(targetName) || targetName != filepath.Base(targetName) {
+		return Result{}, fmt.Errorf("invalid destination name: %s", targetName)
+	}
+	target := filepath.Join(destinationDirectory, targetName)
 	if _, err := os.Lstat(target); err == nil {
 		return Result{}, fmt.Errorf("destination already exists: %w", fs.ErrExist)
 	} else if !errors.Is(err, fs.ErrNotExist) {
@@ -83,7 +93,7 @@ func Copy(ctx context.Context, source, destinationDirectory string, report Repor
 		return Result{}, fmt.Errorf("source does not exist: %s", source)
 	}
 
-	stagingDirectory, err := os.MkdirTemp(destinationDirectory, ".hufe-paste-")
+	stagingDirectory, err := os.MkdirTemp(destinationDirectory, stagingPattern)
 	if err != nil {
 		return Result{}, fmt.Errorf("create staging directory: %w", err)
 	}
@@ -96,7 +106,7 @@ func Copy(ctx context.Context, source, destinationDirectory string, report Repor
 
 	tracker := newProgressTracker(totalBytes, len(entries), report)
 	tracker.emit(PhaseCopying, "")
-	stagingRoot := filepath.Join(stagingDirectory, filepath.Base(source))
+	stagingRoot := filepath.Join(stagingDirectory, targetName)
 
 	var directories []manifestEntry
 	var regularFiles []manifestEntry

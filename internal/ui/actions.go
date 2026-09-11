@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"hufe/internal/explorer"
@@ -78,6 +79,88 @@ func runPasteCmd(ctx context.Context, source, destination string, progressChanne
 }
 
 func waitForPasteProgressCmd(progressChannel <-chan pasteProgressMsg) tea.Cmd {
+	return func() tea.Msg {
+		message, ok := <-progressChannel
+		if !ok {
+			return nil
+		}
+		return message
+	}
+}
+
+func (m *Model) handleDelete() {
+	selected, ok := m.list.SelectedItem().(item)
+	if !ok {
+		m.setErrorMessage("item does not exist")
+		return
+	}
+	if selected.entry.Name == ".." {
+		m.setErrorMessage("the parent directory cannot be deleted")
+		return
+	}
+
+	trashDirectory, err := fileops.ValidateTrashDestination(selected.entry.Path, os.Getenv("HUFE_TRASH_DIR"))
+	if err != nil {
+		m.setError(err)
+		return
+	}
+	info, err := os.Lstat(selected.entry.Path)
+	if err != nil {
+		m.setError(err)
+		return
+	}
+	kind := "file"
+	if info.Mode()&os.ModeSymlink != 0 {
+		kind = "symbolic link"
+	} else if info.IsDir() {
+		kind = "directory and all of its contents"
+	}
+
+	m.deletion = &deleteState{
+		source:         selected.entry.Path,
+		trashDirectory: trashDirectory,
+		kind:           kind,
+		selectionIndex: m.list.Index(),
+		phase:          deletePhaseConfirming,
+	}
+	m.clearStatus()
+}
+
+func (m *Model) confirmDelete() tea.Cmd {
+	if m.deletion == nil || m.deletion.phase != deletePhaseConfirming {
+		return nil
+	}
+	m.deletion.phase = deletePhaseMoving
+	progressChannel := make(chan deleteProgressMsg, 1)
+	m.deleteProgress = progressChannel
+
+	return tea.Batch(
+		runDeleteCmd(m.deletion.source, m.deletion.trashDirectory, progressChannel),
+		waitForDeleteProgressCmd(progressChannel),
+	)
+}
+
+func runDeleteCmd(source, trashDirectory string, progressChannel chan deleteProgressMsg) tea.Cmd {
+	return func() tea.Msg {
+		defer close(progressChannel)
+		result, err := fileops.MoveToTrash(context.Background(), source, trashDirectory, func(progress fileops.Progress) {
+			message := deleteProgressMsg{
+				completedBytes: progress.CompletedBytes,
+				totalBytes:     progress.TotalBytes,
+				completedItems: progress.CompletedItems,
+				totalItems:     progress.TotalItems,
+				currentPath:    progress.CurrentPath,
+			}
+			select {
+			case progressChannel <- message:
+			default:
+			}
+		})
+		return deleteFinishedMsg{result: result, err: err}
+	}
+}
+
+func waitForDeleteProgressCmd(progressChannel <-chan deleteProgressMsg) tea.Cmd {
 	return func() tea.Msg {
 		message, ok := <-progressChannel
 		if !ok {

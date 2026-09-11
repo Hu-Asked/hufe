@@ -13,7 +13,12 @@ import (
 
 func (m *Model) View() string {
 	base := m.baseView()
-	if m.paste == nil {
+	var popup string
+	if m.paste != nil {
+		popup = m.pasteView()
+	} else if m.deletion != nil {
+		popup = m.deleteView()
+	} else {
 		return base
 	}
 
@@ -25,7 +30,7 @@ func (m *Model) View() string {
 	if height <= 0 {
 		height = lipgloss.Height(base)
 	}
-	return overlayCentered(base, m.pasteView(), width, height)
+	return overlayCentered(base, popup, width, height)
 }
 
 func (m *Model) baseView() string {
@@ -64,11 +69,7 @@ func (m *Model) pasteView() string {
 	}
 
 	ratio := pasteRatio(m.paste)
-	barWidth := max(8, contentWidth-8)
-	filled := min(barWidth, max(0, int(ratio*float64(barWidth))))
-	bar := pasteProgressDoneStyle.Render(strings.Repeat("█", filled)) +
-		pasteProgressLeftStyle.Render(strings.Repeat("░", barWidth-filled))
-	progressLine := fmt.Sprintf("%s %3.0f%%", bar, ratio*100)
+	progressLine := renderProgressBar(ratio, max(8, contentWidth-8))
 
 	detail := "Scanning source"
 	if m.paste.phase == pastePhaseCopying {
@@ -93,7 +94,67 @@ func (m *Model) pasteView() string {
 		hintStyle.Render(current),
 		keyHint("Esc", "cancel"),
 	}, "\n")
-	return pasteModalStyle.Width(contentWidth).Render(body)
+	return modalStyle.Width(contentWidth).Render(body)
+}
+
+func (m *Model) deleteView() string {
+	availableWidth := max(16, m.windowWidth-8)
+	contentWidth := min(56, availableWidth-6)
+	if contentWidth < 10 {
+		contentWidth = 10
+	}
+
+	name := ansi.Truncate(filepath.Base(m.deletion.source), contentWidth, "…")
+	trashDirectory := ansi.Truncate(m.deletion.trashDirectory, contentWidth, "…")
+	var lines []string
+	if m.deletion.phase == deletePhaseConfirming {
+		lines = []string{
+			headerTitleStyle.Render("Move to trash?"),
+			name,
+			hintStyle.Render(m.deletion.kind),
+			"Destination: " + trashDirectory,
+			keyHint("d", "confirm") + "  " + hintStyle.Render("any other key cancels"),
+		}
+	} else {
+		lines = []string{
+			headerTitleStyle.Render("Moving " + name),
+			"Moving to trash…",
+		}
+		if m.deletion.totalItems > 0 {
+			ratio := deleteRatio(m.deletion)
+			lines = append(lines,
+				renderProgressBar(ratio, max(8, contentWidth-8)),
+				fmt.Sprintf("%s / %s   %d / %d items",
+					formatBytes(m.deletion.completedBytes),
+					formatBytes(m.deletion.totalBytes),
+					m.deletion.completedItems,
+					m.deletion.totalItems,
+				),
+			)
+			if m.deletion.currentPath != "" {
+				lines = append(lines, hintStyle.Render(ansi.Truncate(m.deletion.currentPath, contentWidth, "…")))
+			}
+		}
+	}
+
+	return modalStyle.Width(contentWidth).Render(strings.Join(lines, "\n"))
+}
+
+func renderProgressBar(ratio float64, width int) string {
+	filled := min(width, max(0, int(ratio*float64(width))))
+	bar := pasteProgressDoneStyle.Render(strings.Repeat("█", filled)) +
+		pasteProgressLeftStyle.Render(strings.Repeat("░", width-filled))
+	return fmt.Sprintf("%s %3.0f%%", bar, ratio*100)
+}
+
+func deleteRatio(state *deleteState) float64 {
+	if state.totalBytes > 0 {
+		return min(1, float64(state.completedBytes)/float64(state.totalBytes))
+	}
+	if state.totalItems > 0 {
+		return min(1, float64(state.completedItems)/float64(state.totalItems))
+	}
+	return 0
 }
 
 func pasteRatio(state *pasteState) float64 {

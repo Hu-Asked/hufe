@@ -71,7 +71,7 @@ var (
 				Foreground(colors.StatusErrorForeground).
 				Bold(true)
 
-	pasteModalStyle = lipgloss.NewStyle().
+	modalStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(colors.KeyForeground).
 			Padding(1, 2)
@@ -122,6 +122,7 @@ func renderStatusLine(path string, status string, statusIsError bool, jumpMulti 
 		keyHint("h", "prev"),
 		keyHint("y", "copy"),
 		keyHint("p", "paste"),
+		keyHint("d", "delete"),
 		keyHint("Tab", "hidden"),
 		keyHint("q", "quit"),
 	}, "  ")

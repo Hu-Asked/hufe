@@ -43,6 +43,8 @@ type Model struct {
 
 	paste           *pasteState
 	pasteProgressCh <-chan pasteProgressMsg
+	deletion        *deleteState
+	deleteProgress  <-chan deleteProgressMsg
 }
 
 type pasteState struct {
@@ -55,6 +57,19 @@ type pasteState struct {
 	currentPath    string
 	cancelling     bool
 	cancel         context.CancelFunc
+}
+
+type deleteState struct {
+	source         string
+	trashDirectory string
+	kind           string
+	selectionIndex int
+	phase          deletePhase
+	completedBytes int64
+	totalBytes     int64
+	completedItems int
+	totalItems     int
+	currentPath    string
 }
 
 type selectionHistoryEntry struct {
