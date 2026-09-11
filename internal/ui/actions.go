@@ -1,12 +1,13 @@
 package ui
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"hufe/internal/explorer"
+	"hufe/internal/fileops"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -33,30 +34,57 @@ func (m *Model) handleCopy() {
 	m.setStatus(fmt.Sprintf("Copied %s", m.pathToCopy), false)
 }
 
-func (m *Model) handlePaste() {
-	selected := m.list.SelectedItem()
+func (m *Model) handlePaste() tea.Cmd {
 	if m.pathToCopy == "" {
-		return
+		m.setErrorMessage("nothing has been copied")
+		return nil
 	}
-	if selected == nil {
-		m.setError(errors.New("Error: destination does not exist"))
-		return
+
+	ctx, cancel := context.WithCancel(context.Background())
+	progressChannel := make(chan pasteProgressMsg, 1)
+	m.paste = &pasteState{
+		source: m.pathToCopy,
+		phase:  pastePhasePreparing,
+		cancel: cancel,
 	}
-	finalTarget := filepath.Join(m.cwd, filepath.Base(m.pathToCopy))
-	err := os.CopyFS(finalTarget, os.DirFS(m.pathToCopy))
-	if err != nil {
-		m.setError(err)
-		return
-	}
-	m.updateTitle()
+	m.pasteProgressCh = progressChannel
 	m.clearStatus()
-	entries, err := explorer.ReadEntriesWithHidden(m.cwd, m.showHidden)
-	m.list.SetItems(itemsFromEntries(entries))
-	if err != nil {
-		return
+
+	return tea.Batch(
+		runPasteCmd(ctx, m.pathToCopy, m.cwd, progressChannel),
+		waitForPasteProgressCmd(progressChannel),
+	)
+}
+
+func runPasteCmd(ctx context.Context, source, destination string, progressChannel chan pasteProgressMsg) tea.Cmd {
+	return func() tea.Msg {
+		defer close(progressChannel)
+		result, err := fileops.Copy(ctx, source, destination, func(progress fileops.Progress) {
+			message := pasteProgressMsg{
+				phase:          pastePhase(progress.Phase),
+				completedBytes: progress.CompletedBytes,
+				totalBytes:     progress.TotalBytes,
+				completedItems: progress.CompletedItems,
+				totalItems:     progress.TotalItems,
+				currentPath:    progress.CurrentPath,
+			}
+			select {
+			case progressChannel <- message:
+			default:
+			}
+		})
+		return pasteFinishedMsg{result: result, err: err}
 	}
-	m.previewPath = ""
-	m.refreshPreview()
+}
+
+func waitForPasteProgressCmd(progressChannel <-chan pasteProgressMsg) tea.Cmd {
+	return func() tea.Msg {
+		message, ok := <-progressChannel
+		if !ok {
+			return nil
+		}
+		return message
+	}
 }
 
 func (m *Model) handleEnter() tea.Cmd {

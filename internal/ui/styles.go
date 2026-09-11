@@ -70,6 +70,17 @@ var (
 	statusErrorStyle = lipgloss.NewStyle().
 				Foreground(colors.StatusErrorForeground).
 				Bold(true)
+
+	pasteModalStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(colors.KeyForeground).
+			Padding(1, 2)
+
+	pasteProgressDoneStyle = lipgloss.NewStyle().
+				Foreground(colors.KeyForeground)
+
+	pasteProgressLeftStyle = lipgloss.NewStyle().
+				Foreground(colors.ListItemDimForeground)
 )
 
 func newList(items []list.Item) list.Model {
@@ -109,6 +120,8 @@ func renderStatusLine(path string, status string, statusIsError bool, jumpMulti 
 		keyHint("Enter", "cd+quit"),
 		keyHint("l", "open"),
 		keyHint("h", "prev"),
+		keyHint("y", "copy"),
+		keyHint("p", "paste"),
 		keyHint("Tab", "hidden"),
 		keyHint("q", "quit"),
 	}, "  ")

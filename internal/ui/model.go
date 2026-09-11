@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 
@@ -16,6 +17,8 @@ type Model struct {
 	statusIsError bool
 	exitDir       string
 	boxWidth      int
+	windowWidth   int
+	windowHeight  int
 	jumpMulti     int
 	pathToCopy    string
 	history       []selectionHistoryEntry
@@ -37,6 +40,21 @@ type Model struct {
 	recursiveSearch bool
 	allEntries      []explorer.Entry
 	searchFiles     []FileEntry
+
+	paste           *pasteState
+	pasteProgressCh <-chan pasteProgressMsg
+}
+
+type pasteState struct {
+	source         string
+	phase          pastePhase
+	completedBytes int64
+	totalBytes     int64
+	completedItems int
+	totalItems     int
+	currentPath    string
+	cancelling     bool
+	cancel         context.CancelFunc
 }
 
 type selectionHistoryEntry struct {
