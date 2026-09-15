@@ -8,7 +8,8 @@ import (
 )
 
 type item struct {
-	entry explorer.Entry
+	entry         explorer.Entry
+	rangeSelected bool
 }
 
 func (i item) Title() string {

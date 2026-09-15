@@ -11,18 +11,21 @@ import (
 )
 
 type Model struct {
-	list          list.Model
-	cwd           string
-	status        string
-	statusIsError bool
-	exitDir       string
-	boxWidth      int
-	windowWidth   int
-	windowHeight  int
-	jumpMulti     int
-	pathToCopy    string
-	history       []selectionHistoryEntry
-	showHidden    bool
+	list            list.Model
+	cwd             string
+	status          string
+	statusIsError   bool
+	exitDir         string
+	boxWidth        int
+	windowWidth     int
+	windowHeight    int
+	jumpMulti       int
+	pathToCopy      string
+	pathsToCopy     []string
+	history         []selectionHistoryEntry
+	showHidden      bool
+	selectionMode   bool
+	selectionAnchor int
 
 	previewWidth       int
 	previewHeight      int
@@ -48,28 +51,34 @@ type Model struct {
 }
 
 type pasteState struct {
-	source         string
-	phase          pastePhase
-	completedBytes int64
-	totalBytes     int64
-	completedItems int
-	totalItems     int
-	currentPath    string
-	cancelling     bool
-	cancel         context.CancelFunc
+	source           string
+	sources          []string
+	phase            pastePhase
+	completedBytes   int64
+	totalBytes       int64
+	completedItems   int
+	totalItems       int
+	currentPath      string
+	completedSources int
+	totalSources     int
+	cancelling       bool
+	cancel           context.CancelFunc
 }
 
 type deleteState struct {
-	source         string
-	trashDirectory string
-	kind           string
-	selectionIndex int
-	phase          deletePhase
-	completedBytes int64
-	totalBytes     int64
-	completedItems int
-	totalItems     int
-	currentPath    string
+	source           string
+	sources          []string
+	trashDirectory   string
+	kind             string
+	selectionIndex   int
+	phase            deletePhase
+	completedBytes   int64
+	totalBytes       int64
+	completedItems   int
+	totalItems       int
+	currentPath      string
+	completedSources int
+	totalSources     int
 }
 
 type selectionHistoryEntry struct {
@@ -159,4 +168,39 @@ func (m *Model) setItem(index int) {
 	}
 	index = max(0, min(index, itemCount-1))
 	m.list.Select(index)
+	m.updateSelectionRange()
+}
+
+func (m *Model) startSelectionMode() {
+	if len(m.list.Items()) == 0 {
+		return
+	}
+	m.selectionMode = true
+	m.selectionAnchor = m.list.Index()
+	m.updateSelectionRange()
+}
+
+func (m *Model) stopSelectionMode() {
+	m.selectionMode = false
+	m.selectionAnchor = 0
+	m.updateSelectionRange()
+}
+
+func (m *Model) updateSelectionRange() {
+	start, end := m.selectionAnchor, m.list.Index()
+	if start > end {
+		start, end = end, start
+	}
+	for index, listItem := range m.list.Items() {
+		entryItem, ok := listItem.(item)
+		if !ok {
+			continue
+		}
+		selected := m.selectionMode && index >= start && index <= end
+		if entryItem.rangeSelected == selected {
+			continue
+		}
+		entryItem.rangeSelected = selected
+		m.list.SetItem(index, entryItem)
+	}
 }

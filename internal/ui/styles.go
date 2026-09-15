@@ -115,7 +115,7 @@ func itemStyles() list.DefaultItemStyles {
 	return styles
 }
 
-func renderStatusLine(path string, status string, statusIsError bool, jumpMulti int) string {
+func renderStatusLine(path string, status string, statusIsError bool, jumpMulti int, selectionCount int) string {
 	keyHints := strings.Join([]string{
 		keyHint("Enter", "cd+quit"),
 		keyHint("l", "open"),
@@ -123,11 +123,16 @@ func renderStatusLine(path string, status string, statusIsError bool, jumpMulti 
 		keyHint("y", "copy"),
 		keyHint("p", "paste"),
 		keyHint("d", "delete"),
+		keyHint("v", "select"),
 		keyHint("Tab", "hidden"),
 		keyHint("q", "quit"),
 	}, "  ")
 
-	base := fmt.Sprintf("%s  |  %s  |  %d", pathStyle.Render(path), keyHints, jumpMulti)
+	mode := fmt.Sprintf("%d", jumpMulti)
+	if selectionCount > 0 {
+		mode = keyStyle.Render(fmt.Sprintf("SELECT %d", selectionCount))
+	}
+	base := fmt.Sprintf("%s  |  %s  |  %s", pathStyle.Render(path), keyHints, mode)
 	if status == "" {
 		return base
 	}

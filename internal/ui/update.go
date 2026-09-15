@@ -20,17 +20,20 @@ const (
 )
 
 type pasteProgressMsg struct {
-	phase          pastePhase
-	completedBytes int64
-	totalBytes     int64
-	completedItems int
-	totalItems     int
-	currentPath    string
+	phase            pastePhase
+	completedBytes   int64
+	totalBytes       int64
+	completedItems   int
+	totalItems       int
+	currentPath      string
+	completedSources int
+	totalSources     int
 }
 
 type pasteFinishedMsg struct {
-	result fileops.Result
-	err    error
+	result  fileops.Result
+	targets []string
+	err     error
 }
 
 type deletePhase uint8
@@ -41,16 +44,19 @@ const (
 )
 
 type deleteProgressMsg struct {
-	completedBytes int64
-	totalBytes     int64
-	completedItems int
-	totalItems     int
-	currentPath    string
+	completedBytes   int64
+	totalBytes       int64
+	completedItems   int
+	totalItems       int
+	currentPath      string
+	completedSources int
+	totalSources     int
 }
 
 type deleteFinishedMsg struct {
-	result fileops.Result
-	err    error
+	result  fileops.Result
+	results []fileops.Result
+	err     error
 }
 
 func (m *Model) Init() tea.Cmd {
@@ -83,6 +89,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.paste.completedItems = msg.completedItems
 		m.paste.totalItems = msg.totalItems
 		m.paste.currentPath = msg.currentPath
+		m.paste.completedSources = msg.completedSources
+		m.paste.totalSources = msg.totalSources
 		return m, waitForPasteProgressCmd(m.pasteProgressCh)
 	case pasteFinishedMsg:
 		return m, m.finishPaste(msg)
@@ -95,6 +103,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.deletion.completedItems = msg.completedItems
 		m.deletion.totalItems = msg.totalItems
 		m.deletion.currentPath = msg.currentPath
+		m.deletion.completedSources = msg.completedSources
+		m.deletion.totalSources = msg.totalSources
 		return m, waitForDeleteProgressCmd(m.deleteProgress)
 	case deleteFinishedMsg:
 		return m, m.finishDelete(msg)
@@ -185,8 +195,13 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.handleSelect()
 	case "enter":
 		return m, m.handleEnter()
+	case "v":
+		m.jumpMulti = 0
+		m.startSelectionMode()
+		return m, nil
 	case "esc":
 		m.jumpMulti = 0
+		m.stopSelectionMode()
 		return m, nil
 	case "k":
 		steps := 1
@@ -222,6 +237,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
+	m.updateSelectionRange()
 	return m, cmd
 }
 
@@ -233,14 +249,11 @@ func (m *Model) finishDelete(message deleteFinishedMsg) tea.Cmd {
 	m.deletion = nil
 	m.deleteProgress = nil
 
-	clearCopyPath := message.err == nil && pathContainsSelection(state.source, m.pathToCopy)
-	if !clearCopyPath && m.pathToCopy != "" {
-		_, err := os.Lstat(m.pathToCopy)
-		clearCopyPath = errors.Is(err, os.ErrNotExist)
+	deletedSources := state.sourcesOrSource()
+	if message.err != nil {
+		deletedSources = deletedSources[:min(len(deletedSources), len(message.results))]
 	}
-	if clearCopyPath {
-		m.pathToCopy = ""
-	}
+	m.pruneCopiedPaths(deletedSources)
 	if err := m.loadDir(m.cwd); err != nil {
 		m.setError(err)
 		return nil
@@ -252,8 +265,38 @@ func (m *Model) finishDelete(message deleteFinishedMsg) tea.Cmd {
 		m.setError(message.err)
 		return nil
 	}
-	m.setStatus(fmt.Sprintf("Moved %s to %s", filepath.Base(state.source), message.result.Target), false)
+	if len(state.sourcesOrSource()) == 1 {
+		m.setStatus(fmt.Sprintf("Moved %s to %s", filepath.Base(state.source), message.result.Target), false)
+	} else {
+		m.setStatus(fmt.Sprintf("Moved %d items to %s", len(state.sourcesOrSource()), state.trashDirectory), false)
+	}
 	return nil
+}
+
+func (m *Model) pruneCopiedPaths(deletedSources []string) {
+	paths := m.copiedPaths()
+	kept := paths[:0]
+	for _, copiedPath := range paths {
+		deleted := false
+		for _, source := range deletedSources {
+			if pathContainsSelection(source, copiedPath) {
+				deleted = true
+				break
+			}
+		}
+		if !deleted {
+			_, err := os.Lstat(copiedPath)
+			deleted = errors.Is(err, os.ErrNotExist)
+		}
+		if !deleted {
+			kept = append(kept, copiedPath)
+		}
+	}
+	m.pathsToCopy = append([]string(nil), kept...)
+	m.pathToCopy = ""
+	if len(m.pathsToCopy) > 0 {
+		m.pathToCopy = m.pathsToCopy[0]
+	}
 }
 
 func pathContainsSelection(parent, child string) bool {
@@ -272,10 +315,25 @@ func (m *Model) finishPaste(message pasteFinishedMsg) tea.Cmd {
 	if state == nil {
 		return nil
 	}
-	state.cancel()
+	if state.cancel != nil {
+		state.cancel()
+	}
 	m.paste = nil
 	m.pasteProgressCh = nil
 
+	targets := message.targets
+	if len(targets) == 0 && message.result.Target != "" {
+		targets = []string{message.result.Target}
+	}
+	if len(targets) > 0 {
+		if err := m.loadDir(m.cwd); err != nil {
+			m.setError(err)
+			return nil
+		}
+		m.selectPath(targets[0])
+		m.previewPath = ""
+		m.refreshPreview()
+	}
 	if message.err != nil {
 		if state.cancelling || errors.Is(message.err, context.Canceled) {
 			m.setStatus("Paste cancelled", false)
@@ -285,13 +343,13 @@ func (m *Model) finishPaste(message pasteFinishedMsg) tea.Cmd {
 		return nil
 	}
 
-	if err := m.loadDir(m.cwd); err != nil {
-		m.setError(err)
+	if len(targets) == 0 {
 		return nil
 	}
-	m.selectPath(message.result.Target)
-	m.previewPath = ""
-	m.refreshPreview()
-	m.setStatus(fmt.Sprintf("Pasted %s", filepath.Base(message.result.Target)), false)
+	if len(state.sources) > 1 {
+		m.setStatus(fmt.Sprintf("Pasted %d items", len(targets)), false)
+	} else {
+		m.setStatus(fmt.Sprintf("Pasted %s", filepath.Base(targets[0])), false)
+	}
 	return nil
 }

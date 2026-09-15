@@ -18,25 +18,29 @@ type openFileResult struct {
 }
 
 func (m *Model) handleCopy() {
-	selected := m.list.SelectedItem()
-	if selected == nil {
+	selectedItems := m.operationItems()
+	if len(selectedItems) == 0 {
 		m.setError(errors.New("Error: item does not exist"))
 		return
 	}
 
-	selectedItem, ok := selected.(item)
-	if !ok {
-		m.setError(errors.New("Error: item not ok"))
-		return
+	paths := make([]string, 0, len(selectedItems))
+	for _, selectedItem := range selectedItems {
+		paths = append(paths, selectedItem.entry.Path)
 	}
-
-	entry := selectedItem.entry
-	m.pathToCopy = entry.Path
-	m.setStatus(fmt.Sprintf("Copied %s", m.pathToCopy), false)
+	m.pathsToCopy = paths
+	m.pathToCopy = paths[0]
+	m.stopSelectionMode()
+	if len(paths) == 1 {
+		m.setStatus(fmt.Sprintf("Copied %s", paths[0]), false)
+	} else {
+		m.setStatus(fmt.Sprintf("Copied %d items", len(paths)), false)
+	}
 }
 
 func (m *Model) handlePaste() tea.Cmd {
-	if m.pathToCopy == "" {
+	sources := m.copiedPaths()
+	if len(sources) == 0 {
 		m.setErrorMessage("nothing has been copied")
 		return nil
 	}
@@ -44,17 +48,29 @@ func (m *Model) handlePaste() tea.Cmd {
 	ctx, cancel := context.WithCancel(context.Background())
 	progressChannel := make(chan pasteProgressMsg, 1)
 	m.paste = &pasteState{
-		source: m.pathToCopy,
-		phase:  pastePhasePreparing,
-		cancel: cancel,
+		source:       sources[0],
+		sources:      sources,
+		phase:        pastePhasePreparing,
+		totalSources: len(sources),
+		cancel:       cancel,
 	}
 	m.pasteProgressCh = progressChannel
 	m.clearStatus()
 
 	return tea.Batch(
-		runPasteCmd(ctx, m.pathToCopy, m.cwd, progressChannel),
+		runPasteSourcesCmd(ctx, sources, m.cwd, progressChannel),
 		waitForPasteProgressCmd(progressChannel),
 	)
+}
+
+func (m *Model) copiedPaths() []string {
+	if len(m.pathsToCopy) > 0 {
+		return append([]string(nil), m.pathsToCopy...)
+	}
+	if m.pathToCopy != "" {
+		return []string{m.pathToCopy}
+	}
+	return nil
 }
 
 func runPasteCmd(ctx context.Context, source, destination string, progressChannel chan pasteProgressMsg) tea.Cmd {
@@ -78,6 +94,47 @@ func runPasteCmd(ctx context.Context, source, destination string, progressChanne
 	}
 }
 
+func runPasteSourcesCmd(ctx context.Context, sources []string, destination string, progressChannel chan pasteProgressMsg) tea.Cmd {
+	return func() tea.Msg {
+		defer close(progressChannel)
+		message := pasteFinishedMsg{}
+		for index, source := range sources {
+			result, err := fileops.Copy(ctx, source, destination, func(progress fileops.Progress) {
+				progressMessage := pasteProgressMsg{
+					phase:            pastePhase(progress.Phase),
+					completedBytes:   progress.CompletedBytes,
+					totalBytes:       progress.TotalBytes,
+					completedItems:   progress.CompletedItems,
+					totalItems:       progress.TotalItems,
+					currentPath:      progress.CurrentPath,
+					completedSources: index,
+					totalSources:     len(sources),
+				}
+				select {
+				case progressChannel <- progressMessage:
+				default:
+				}
+			})
+			if err != nil {
+				message.err = err
+				return message
+			}
+			message.result = result
+			message.targets = append(message.targets, result.Target)
+			select {
+			case progressChannel <- pasteProgressMsg{
+				phase:            pastePhaseCopying,
+				completedSources: index + 1,
+				totalSources:     len(sources),
+				currentPath:      filepath.Base(source),
+			}:
+			default:
+			}
+		}
+		return message
+	}
+}
+
 func waitForPasteProgressCmd(progressChannel <-chan pasteProgressMsg) tea.Cmd {
 	return func() tea.Msg {
 		message, ok := <-progressChannel
@@ -89,40 +146,52 @@ func waitForPasteProgressCmd(progressChannel <-chan pasteProgressMsg) tea.Cmd {
 }
 
 func (m *Model) handleDelete() {
-	selected, ok := m.list.SelectedItem().(item)
-	if !ok {
+	selectedItems := m.operationItems()
+	if len(selectedItems) == 0 {
 		m.setErrorMessage("item does not exist")
 		return
 	}
-	if selected.entry.Name == ".." {
-		m.setErrorMessage("the parent directory cannot be deleted")
-		return
-	}
 
-	trashDirectory, err := fileops.ValidateTrashDestination(selected.entry.Path, os.Getenv("HUFE_TRASH_DIR"))
-	if err != nil {
-		m.setError(err)
-		return
-	}
-	info, err := os.Lstat(selected.entry.Path)
-	if err != nil {
-		m.setError(err)
-		return
-	}
-	kind := "file"
-	if info.Mode()&os.ModeSymlink != 0 {
-		kind = "symbolic link"
-	} else if info.IsDir() {
-		kind = "directory and all of its contents"
+	paths := make([]string, 0, len(selectedItems))
+	trashDirectory := ""
+	kind := "items"
+	for _, selected := range selectedItems {
+		if selected.entry.Name == ".." {
+			m.setErrorMessage("the parent directory cannot be deleted")
+			return
+		}
+		validatedTrash, err := fileops.ValidateTrashDestination(selected.entry.Path, os.Getenv("HUFE_TRASH_DIR"))
+		if err != nil {
+			m.setError(err)
+			return
+		}
+		trashDirectory = validatedTrash
+		info, err := os.Lstat(selected.entry.Path)
+		if err != nil {
+			m.setError(err)
+			return
+		}
+		if len(selectedItems) == 1 {
+			kind = "file"
+			if info.Mode()&os.ModeSymlink != 0 {
+				kind = "symbolic link"
+			} else if info.IsDir() {
+				kind = "directory and all of its contents"
+			}
+		}
+		paths = append(paths, selected.entry.Path)
 	}
 
 	m.deletion = &deleteState{
-		source:         selected.entry.Path,
+		source:         paths[0],
+		sources:        paths,
 		trashDirectory: trashDirectory,
 		kind:           kind,
 		selectionIndex: m.list.Index(),
 		phase:          deletePhaseConfirming,
+		totalSources:   len(paths),
 	}
+	m.stopSelectionMode()
 	m.clearStatus()
 }
 
@@ -135,9 +204,80 @@ func (m *Model) confirmDelete() tea.Cmd {
 	m.deleteProgress = progressChannel
 
 	return tea.Batch(
-		runDeleteCmd(m.deletion.source, m.deletion.trashDirectory, progressChannel),
+		runDeleteSourcesCmd(m.deletion.sourcesOrSource(), m.deletion.trashDirectory, progressChannel),
 		waitForDeleteProgressCmd(progressChannel),
 	)
+}
+
+func (state *deleteState) sourcesOrSource() []string {
+	if len(state.sources) > 0 {
+		return append([]string(nil), state.sources...)
+	}
+	if state.source != "" {
+		return []string{state.source}
+	}
+	return nil
+}
+
+func runDeleteSourcesCmd(sources []string, trashDirectory string, progressChannel chan deleteProgressMsg) tea.Cmd {
+	return func() tea.Msg {
+		defer close(progressChannel)
+		message := deleteFinishedMsg{}
+		for index, source := range sources {
+			result, err := fileops.MoveToTrash(context.Background(), source, trashDirectory, func(progress fileops.Progress) {
+				progressMessage := deleteProgressMsg{
+					completedBytes:   progress.CompletedBytes,
+					totalBytes:       progress.TotalBytes,
+					completedItems:   progress.CompletedItems,
+					totalItems:       progress.TotalItems,
+					currentPath:      progress.CurrentPath,
+					completedSources: index,
+					totalSources:     len(sources),
+				}
+				select {
+				case progressChannel <- progressMessage:
+				default:
+				}
+			})
+			if err != nil {
+				message.err = err
+				return message
+			}
+			message.result = result
+			message.results = append(message.results, result)
+			select {
+			case progressChannel <- deleteProgressMsg{
+				completedSources: index + 1,
+				totalSources:     len(sources),
+				currentPath:      filepath.Base(source),
+			}:
+			default:
+			}
+		}
+		return message
+	}
+}
+
+func (m *Model) operationItems() []item {
+	if !m.selectionMode {
+		selected, ok := m.list.SelectedItem().(item)
+		if !ok {
+			return nil
+		}
+		return []item{selected}
+	}
+
+	start, end := m.selectionAnchor, m.list.Index()
+	if start > end {
+		start, end = end, start
+	}
+	items := make([]item, 0, end-start+1)
+	for index := start; index <= end && index < len(m.list.Items()); index++ {
+		if selected, ok := m.list.Items()[index].(item); ok {
+			items = append(items, selected)
+		}
+	}
+	return items
 }
 
 func runDeleteCmd(source, trashDirectory string, progressChannel chan deleteProgressMsg) tea.Cmd {
@@ -262,6 +402,8 @@ func (m *Model) loadDir(path string) error {
 	}
 
 	m.cwd = path
+	m.selectionMode = false
+	m.selectionAnchor = 0
 	m.updateTitle()
 	m.clearStatus()
 	m.list.SetItems(itemsFromEntries(entries))
@@ -289,6 +431,7 @@ func (m *Model) selectPath(path string) bool {
 }
 
 func (m *Model) initSearch(recursive bool) {
+	m.stopSelectionMode()
 	m.searchMode = true
 	m.recursiveSearch = recursive
 	m.searchInput.Focus()
@@ -318,6 +461,7 @@ func (m *Model) initSearch(recursive bool) {
 }
 
 func (m *Model) toggleHidden() {
+	m.stopSelectionMode()
 	showHidden := !m.showHidden
 	var entries []explorer.Entry
 	var err error

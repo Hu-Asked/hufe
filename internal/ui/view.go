@@ -61,6 +61,9 @@ func (m *Model) pasteView() string {
 	}
 
 	title := "Pasting " + filepath.Base(m.paste.source)
+	if m.paste.totalSources > 1 {
+		title = fmt.Sprintf("Pasting %d items", m.paste.totalSources)
+	}
 	phase := "Preparing files…"
 	if m.paste.cancelling {
 		phase = "Cancelling…"
@@ -86,14 +89,18 @@ func (m *Model) pasteView() string {
 	}
 	current = ansi.Truncate(current, contentWidth, "…")
 
-	body := strings.Join([]string{
+	lines := []string{
 		headerTitleStyle.Render(title),
 		phase,
 		progressLine,
 		detail,
 		hintStyle.Render(current),
-		keyHint("Esc", "cancel"),
-	}, "\n")
+	}
+	if m.paste.totalSources > 1 {
+		lines = append(lines, sourceProgress(m.paste.completedSources, m.paste.totalSources))
+	}
+	lines = append(lines, keyHint("Esc", "cancel"))
+	body := strings.Join(lines, "\n")
 	return modalStyle.Width(contentWidth).Render(body)
 }
 
@@ -105,6 +112,9 @@ func (m *Model) deleteView() string {
 	}
 
 	name := ansi.Truncate(filepath.Base(m.deletion.source), contentWidth, "…")
+	if m.deletion.totalSources > 1 {
+		name = fmt.Sprintf("%d selected items", m.deletion.totalSources)
+	}
 	trashDirectory := ansi.Truncate(m.deletion.trashDirectory, contentWidth, "…")
 	var lines []string
 	if m.deletion.phase == deletePhaseConfirming {
@@ -135,9 +145,19 @@ func (m *Model) deleteView() string {
 				lines = append(lines, hintStyle.Render(ansi.Truncate(m.deletion.currentPath, contentWidth, "…")))
 			}
 		}
+		if m.deletion.totalSources > 1 {
+			lines = append(lines, sourceProgress(m.deletion.completedSources, m.deletion.totalSources))
+		}
 	}
 
 	return modalStyle.Width(contentWidth).Render(strings.Join(lines, "\n"))
+}
+
+func sourceProgress(completed, total int) string {
+	if total <= 1 {
+		return ""
+	}
+	return hintStyle.Render(fmt.Sprintf("%d / %d selected items", completed, total))
 }
 
 func renderProgressBar(ratio float64, width int) string {
@@ -231,7 +251,11 @@ func padLine(line string, width int) string {
 }
 
 func (m *Model) statusLine() string {
-	return renderStatusLine(m.cwd, m.status, m.statusIsError, m.jumpMulti)
+	selectionCount := 0
+	if m.selectionMode {
+		selectionCount = len(m.operationItems())
+	}
+	return renderStatusLine(m.cwd, m.status, m.statusIsError, m.jumpMulti, selectionCount)
 }
 
 func (m *Model) previewView() string {
