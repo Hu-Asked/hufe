@@ -18,6 +18,8 @@ func (m *Model) View() string {
 		popup = m.pasteView()
 	} else if m.deletion != nil {
 		popup = m.deleteView()
+	} else if m.rename != nil {
+		popup = m.renameView()
 	} else {
 		return base
 	}
@@ -31,6 +33,26 @@ func (m *Model) View() string {
 		height = lipgloss.Height(base)
 	}
 	return overlayCentered(base, popup, width, height)
+}
+
+func (m *Model) renameView() string {
+	availableWidth := max(16, m.windowWidth-8)
+	contentWidth := min(56, availableWidth-6)
+	if contentWidth < 10 {
+		contentWidth = 10
+	}
+	m.rename.input.Width = max(1, contentWidth)
+
+	lines := []string{
+		headerTitleStyle.Render("Rename"),
+		m.rename.input.View(),
+	}
+	if m.rename.err != nil {
+		errorText := ansi.Truncate("Error: "+m.rename.err.Error(), contentWidth, "…")
+		lines = append(lines, statusErrorStyle.Render(errorText))
+	}
+	lines = append(lines, keyHint("Enter", "rename")+"  "+keyHint("Esc", "cancel"))
+	return modalStyle.Width(contentWidth).Render(strings.Join(lines, "\n"))
 }
 
 func (m *Model) baseView() string {

@@ -6,15 +6,117 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"hufe/internal/explorer"
 	"hufe/internal/fileops"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 type openFileResult struct {
 	err error
+}
+
+func (m *Model) handleRename() tea.Cmd {
+	selected, ok := m.list.SelectedItem().(item)
+	if !ok {
+		m.setErrorMessage("item does not exist")
+		return nil
+	}
+	if selected.entry.Name == ".." {
+		m.setErrorMessage("the parent directory cannot be renamed")
+		return nil
+	}
+
+	input := textinput.New()
+	input.Prompt = ""
+	input.CharLimit = 255
+	input.Width = max(10, min(50, m.windowWidth-14))
+	input.SetValue(selected.entry.Name)
+	input.CursorEnd()
+	m.rename = &renameState{
+		source: selected.entry.Path,
+		input:  input,
+	}
+	m.clearStatus()
+	return m.rename.input.Focus()
+}
+
+func (m *Model) cancelRename() {
+	if m.rename == nil {
+		return
+	}
+	m.rename.input.Blur()
+	m.rename = nil
+}
+
+func (m *Model) confirmRename() {
+	if m.rename == nil {
+		return
+	}
+
+	name := m.rename.input.Value()
+	if err := validateRenameName(name); err != nil {
+		m.rename.err = err
+		return
+	}
+
+	source := m.rename.source
+	target := filepath.Join(filepath.Dir(source), name)
+	if filepath.Clean(target) == filepath.Clean(source) {
+		m.cancelRename()
+		return
+	}
+	if _, err := os.Lstat(target); err == nil {
+		m.rename.err = fmt.Errorf("%q already exists", name)
+		return
+	} else if !errors.Is(err, os.ErrNotExist) {
+		m.rename.err = err
+		return
+	}
+	if err := os.Rename(source, target); err != nil {
+		m.rename.err = err
+		return
+	}
+
+	m.updateCopiedPathsAfterRename(source, target)
+	m.cancelRename()
+	if err := m.loadDir(m.cwd); err != nil {
+		m.setError(err)
+		return
+	}
+	m.selectPath(target)
+	m.setStatus(fmt.Sprintf("Renamed %s to %s", filepath.Base(source), name), false)
+}
+
+func validateRenameName(name string) error {
+	switch {
+	case name == "":
+		return errors.New("name cannot be empty")
+	case name == "." || name == "..":
+		return fmt.Errorf("%q is not a valid name", name)
+	case strings.ContainsRune(name, os.PathSeparator):
+		return errors.New("name cannot contain a path separator")
+	default:
+		return nil
+	}
+}
+
+func (m *Model) updateCopiedPathsAfterRename(source, target string) {
+	paths := m.copiedPaths()
+	for index, copiedPath := range paths {
+		relative, err := filepath.Rel(source, copiedPath)
+		if err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
+			paths[index] = filepath.Join(target, relative)
+		}
+	}
+	m.pathsToCopy = paths
+	m.pathToCopy = ""
+	if len(paths) > 0 {
+		m.pathToCopy = paths[0]
+	}
 }
 
 func (m *Model) handleCopy() {

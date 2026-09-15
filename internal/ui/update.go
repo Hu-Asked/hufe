@@ -116,6 +116,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	if m.rename != nil {
+		var cmd tea.Cmd
+		m.rename.input, cmd = m.rename.input.Update(msg)
+		return m, cmd
+	}
 
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
@@ -143,6 +148,21 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.deleteProgress = nil
 		}
 		return m, nil
+	}
+	if m.rename != nil {
+		switch msg.String() {
+		case "esc":
+			m.cancelRename()
+			return m, nil
+		case "enter":
+			m.confirmRename()
+			return m, nil
+		default:
+			var cmd tea.Cmd
+			m.rename.input, cmd = m.rename.input.Update(msg)
+			m.rename.err = nil
+			return m, cmd
+		}
 	}
 
 	if msg.String() == "tab" {
@@ -231,6 +251,11 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "d":
 		m.handleDelete()
 		return m, nil
+	case "r":
+		if m.selectionMode {
+			return m, nil
+		}
+		return m, m.handleRename()
 	default:
 		m.jumpMulti = 0
 	}
