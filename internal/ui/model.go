@@ -49,12 +49,18 @@ type Model struct {
 	deletion        *deleteState
 	deleteProgress  <-chan deleteProgressMsg
 	rename          *renameState
+	creation        *creationState
 }
 
 type renameState struct {
 	source string
 	input  textinput.Model
 	err    error
+}
+
+type creationState struct {
+	input textinput.Model
+	err   error
 }
 
 type pasteState struct {

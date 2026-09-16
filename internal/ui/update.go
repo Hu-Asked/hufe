@@ -121,6 +121,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.rename.input, cmd = m.rename.input.Update(msg)
 		return m, cmd
 	}
+	if m.creation != nil {
+		var cmd tea.Cmd
+		m.creation.input, cmd = m.creation.input.Update(msg)
+		return m, cmd
+	}
 
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
@@ -161,6 +166,21 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			var cmd tea.Cmd
 			m.rename.input, cmd = m.rename.input.Update(msg)
 			m.rename.err = nil
+			return m, cmd
+		}
+	}
+	if m.creation != nil {
+		switch msg.String() {
+		case "esc":
+			m.cancelCreation()
+			return m, nil
+		case "enter":
+			m.confirmCreation()
+			return m, nil
+		default:
+			var cmd tea.Cmd
+			m.creation.input, cmd = m.creation.input.Update(msg)
+			m.creation.err = nil
 			return m, cmd
 		}
 	}
@@ -256,6 +276,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, m.handleRename()
+	case "n":
+		m.jumpMulti = 0
+		return m, m.handleCreate()
 	default:
 		m.jumpMulti = 0
 	}

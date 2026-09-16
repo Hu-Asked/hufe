@@ -122,6 +122,7 @@ func renderStatusLine(path string, status string, statusIsError bool, jumpMulti 
 		keyHint("h", "prev"),
 		keyHint("y", "copy"),
 		keyHint("p", "paste"),
+		keyHint("n", "new"),
 	}
 	if selectionCount == 0 {
 		hints = append(hints, keyHint("r", "rename"))

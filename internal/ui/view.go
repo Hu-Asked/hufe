@@ -20,6 +20,8 @@ func (m *Model) View() string {
 		popup = m.deleteView()
 	} else if m.rename != nil {
 		popup = m.renameView()
+	} else if m.creation != nil {
+		popup = m.creationView()
 	} else {
 		return base
 	}
@@ -52,6 +54,27 @@ func (m *Model) renameView() string {
 		lines = append(lines, statusErrorStyle.Render(errorText))
 	}
 	lines = append(lines, keyHint("Enter", "rename")+"  "+keyHint("Esc", "cancel"))
+	return modalStyle.Width(contentWidth).Render(strings.Join(lines, "\n"))
+}
+
+func (m *Model) creationView() string {
+	availableWidth := max(16, m.windowWidth-8)
+	contentWidth := min(56, availableWidth-6)
+	if contentWidth < 10 {
+		contentWidth = 10
+	}
+	m.creation.input.Width = max(1, contentWidth)
+
+	lines := []string{
+		headerTitleStyle.Render("New item"),
+		m.creation.input.View(),
+		hintStyle.Render("End with / for a directory"),
+	}
+	if m.creation.err != nil {
+		errorText := ansi.Truncate("Error: "+m.creation.err.Error(), contentWidth, "…")
+		lines = append(lines, statusErrorStyle.Render(errorText))
+	}
+	lines = append(lines, keyHint("Enter", "create")+"  "+keyHint("Esc", "cancel"))
 	return modalStyle.Width(contentWidth).Render(strings.Join(lines, "\n"))
 }
 
