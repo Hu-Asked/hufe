@@ -233,6 +233,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "l":
 		m.jumpMulti = 0
 		return m, m.handleSelect()
+	case "o":
+		m.jumpMulti = 0
+		return m, m.handleOpen()
 	case "enter":
 		return m, m.handleEnter()
 	case "v":

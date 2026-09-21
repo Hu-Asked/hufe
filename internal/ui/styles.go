@@ -118,7 +118,8 @@ func itemStyles() list.DefaultItemStyles {
 func renderStatusLine(path string, status string, statusIsError bool, jumpMulti int, selectionCount int) string {
 	hints := []string{
 		keyHint("Enter", "cd+quit"),
-		keyHint("l", "open"),
+		keyHint("l", "cd"),
+		keyHint("o", "open"),
 		keyHint("h", "prev"),
 		keyHint("y", "copy"),
 		keyHint("p", "paste"),

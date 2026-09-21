@@ -10,6 +10,7 @@ import (
 
 	"hufe/internal/explorer"
 	"hufe/internal/fileops"
+	"hufe/internal/opener"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -448,20 +449,7 @@ func (m *Model) handleSelect() tea.Cmd {
 
 	entry := selectedItem.entry
 	if entry.IsDir {
-		currentParent := filepath.Clean(filepath.Dir(m.cwd))
-		selectedDir := filepath.Clean(entry.Path)
-		if selectedDir == currentParent {
-			return nil
-		}
-
-		previousDir := m.cwd
-		previousIndex := m.list.Index()
-		if err := m.loadDir(entry.Path); err != nil {
-			m.setError(err)
-		} else {
-			m.pushHistory(previousDir, previousIndex)
-		}
-		return nil
+		return m.openDirectory(entry.Path)
 	} else if m.searchMode {
 		if err := m.loadDir(filepath.Dir(entry.Path)); err != nil {
 			m.setError(err)
@@ -469,7 +457,33 @@ func (m *Model) handleSelect() tea.Cmd {
 		return nil
 	}
 
-	return nil // m.openFileCmd(entry.Path)
+	return nil
+}
+
+func (m *Model) handleOpen() tea.Cmd {
+	selectedItem, ok := m.list.SelectedItem().(item)
+	if !ok {
+		m.setErrorMessage("item does not exist")
+		return nil
+	}
+	return m.openFileCmd(selectedItem.entry.Path)
+}
+
+func (m *Model) openDirectory(path string) tea.Cmd {
+	currentParent := filepath.Clean(filepath.Dir(m.cwd))
+	selectedDir := filepath.Clean(path)
+	if selectedDir == currentParent {
+		return nil
+	}
+
+	previousDir := m.cwd
+	previousIndex := m.list.Index()
+	if err := m.loadDir(path); err != nil {
+		m.setError(err)
+	} else {
+		m.pushHistory(previousDir, previousIndex)
+	}
+	return nil
 }
 
 func (m *Model) loadPrev() {
@@ -648,17 +662,28 @@ func (m *Model) cancelSearch() {
 	m.allEntries = nil
 }
 
-// func (m *Model) openFileCmd(path string) tea.Cmd {
-// 	cmd, err := opener.Command(path)
-// 	if err != nil {
-// 		m.setError(err)
-// 		return nil
-// 	}
-//
-// 	return tea.ExecProcess(cmd, func(err error) tea.Msg {
-// 		return openFileResult{err: err}
-// 	})
-// }
+func (m *Model) openFileCmd(path string) tea.Cmd {
+	cmd, mode, err := opener.Command(path)
+	if err != nil {
+		m.setError(err)
+		return nil
+	}
+
+	m.clearStatus()
+	if mode == opener.Terminal {
+		return tea.ExecProcess(cmd, func(err error) tea.Msg {
+			return openFileResult{err: err}
+		})
+	}
+
+	return func() tea.Msg {
+		if err := cmd.Start(); err != nil {
+			return openFileResult{err: err}
+		}
+		_ = cmd.Process.Release()
+		return openFileResult{}
+	}
+}
 
 // func (m *Model) copyTo (pathToCopy string, targetDirectory string) tea.Cmd {
 //
