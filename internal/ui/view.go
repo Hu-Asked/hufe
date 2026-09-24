@@ -22,6 +22,8 @@ func (m *Model) View() string {
 		popup = m.renameView()
 	} else if m.creation != nil {
 		popup = m.creationView()
+	} else if m.showHelp {
+		popup = m.helpView()
 	} else {
 		return base
 	}
@@ -35,6 +37,41 @@ func (m *Model) View() string {
 		height = lipgloss.Height(base)
 	}
 	return overlayCentered(base, popup, width, height)
+}
+
+func (m *Model) helpView() string {
+	availableWidth := max(22, m.windowWidth-8)
+	contentWidth := min(54, availableWidth-6)
+
+	rows := []struct {
+		key  string
+		hint string
+	}{
+		{"j / ↓", "move down"},
+		{"k / ↑", "move up"},
+		{"number + j/k", "move several rows"},
+		{"0", "jump to first row"},
+		{"h", "previous directory"},
+		{"l", "enter directory"},
+		{"Enter", "enter directory and quit"},
+		{"o", "open file"},
+		{"/", "search this directory"},
+		{"?", "search recursively"},
+		{"y / p", "copy / paste"},
+		{"n / r", "new / rename"},
+		{"d", "move to trash"},
+		{"v", "select a range"},
+		{"Esc", "cancel selection or search"},
+		{"Tab", "toggle hidden files"},
+		{"q / Ctrl+C", "quit"},
+	}
+
+	lines := []string{headerTitleStyle.Render("Help")}
+	for _, row := range rows {
+		lines = append(lines, helpKeyStyle.Render(row.key)+"  "+hintStyle.Render(row.hint))
+	}
+	lines = append(lines, "", keyHint("Ctrl+H / Esc", "close"))
+	return modalStyle.Width(contentWidth).Render(strings.Join(lines, "\n"))
 }
 
 func (m *Model) renameView() string {

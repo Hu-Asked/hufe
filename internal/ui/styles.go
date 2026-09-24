@@ -2,9 +2,9 @@ package ui
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -14,6 +14,7 @@ type colorScheme struct {
 	BoxBorder                 lipgloss.Color
 	ListItemForeground        lipgloss.Color
 	ListItemDimForeground     lipgloss.Color
+	ListCursorIndicator       lipgloss.Color
 	ListSelectedForeground    lipgloss.Color
 	ListSelectedBackground    lipgloss.Color
 	ListFilterMatchForeground lipgloss.Color
@@ -24,12 +25,13 @@ type colorScheme struct {
 	StatusErrorForeground     lipgloss.Color
 }
 
-var colors = colorScheme{
+var defaultColors = colorScheme{
 	HeaderForeground:          lipgloss.Color("230"),
 	HeaderBackground:          lipgloss.Color("62"),
 	BoxBorder:                 lipgloss.Color("238"),
 	ListItemForeground:        lipgloss.Color("252"),
 	ListItemDimForeground:     lipgloss.Color("240"),
+	ListCursorIndicator:       lipgloss.Color("75"),
 	ListSelectedForeground:    lipgloss.Color("229"),
 	ListSelectedBackground:    lipgloss.Color("57"),
 	ListFilterMatchForeground: lipgloss.Color("205"),
@@ -40,48 +42,80 @@ var colors = colorScheme{
 	StatusErrorForeground:     lipgloss.Color("196"),
 }
 
+var colors = defaultColors
+
 var (
+	headerTitleStyle       lipgloss.Style
+	headerBarStyle         lipgloss.Style
+	boxStyle               lipgloss.Style
+	pathStyle              lipgloss.Style
+	keyStyle               lipgloss.Style
+	helpKeyStyle           lipgloss.Style
+	hintStyle              lipgloss.Style
+	statusStyle            lipgloss.Style
+	statusErrorStyle       lipgloss.Style
+	modalStyle             lipgloss.Style
+	pasteProgressDoneStyle lipgloss.Style
+	pasteProgressLeftStyle lipgloss.Style
+)
+
+func init() {
+	applyColorScheme(defaultColors)
+}
+
+func applyColorScheme(scheme colorScheme) {
+	colors = scheme
 	headerTitleStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(colors.HeaderForeground).
-				Background(colors.HeaderBackground).
-				Padding(0, 1)
+		Bold(true).
+		Foreground(colors.HeaderForeground).
+		Background(colors.HeaderBackground).
+		Padding(0, 1)
 
 	headerBarStyle = lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder(), false, false, true, false).
-			BorderForeground(colors.BoxBorder)
+		Border(lipgloss.NormalBorder(), false, false, true, false).
+		BorderForeground(colors.BoxBorder)
 
 	boxStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(colors.BoxBorder)
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(colors.BoxBorder)
 
 	pathStyle = lipgloss.NewStyle().
-			Foreground(colors.PathForeground).
-			Bold(true)
+		Foreground(colors.PathForeground).
+		Bold(true)
 
 	keyStyle = lipgloss.NewStyle().
-			Foreground(colors.KeyForeground).
-			Bold(true)
+		Foreground(colors.KeyForeground).
+		Bold(true)
+
+	helpKeyStyle = keyStyle.Width(16)
 
 	hintStyle = lipgloss.NewStyle().Foreground(colors.HintForeground)
 
 	statusStyle = lipgloss.NewStyle().Foreground(colors.StatusForeground)
 
 	statusErrorStyle = lipgloss.NewStyle().
-				Foreground(colors.StatusErrorForeground).
-				Bold(true)
+		Foreground(colors.StatusErrorForeground).
+		Bold(true)
 
 	modalStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(colors.KeyForeground).
-			Padding(1, 2)
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(colors.KeyForeground).
+		Padding(1, 2)
 
 	pasteProgressDoneStyle = lipgloss.NewStyle().
-				Foreground(colors.KeyForeground)
+		Foreground(colors.KeyForeground)
 
 	pasteProgressLeftStyle = lipgloss.NewStyle().
-				Foreground(colors.ListItemDimForeground)
-)
+		Foreground(colors.ListItemDimForeground)
+}
+
+func styleTextInput(input *textinput.Model) {
+	input.PromptStyle = lipgloss.NewStyle().Foreground(colors.KeyForeground)
+	input.TextStyle = lipgloss.NewStyle().Foreground(colors.ListItemForeground)
+	input.PlaceholderStyle = lipgloss.NewStyle().Foreground(colors.HintForeground)
+	input.CompletionStyle = lipgloss.NewStyle().Foreground(colors.ListItemDimForeground)
+	input.Cursor.Style = lipgloss.NewStyle().Foreground(colors.HeaderForeground).Background(colors.HeaderBackground)
+}
 
 func newList(items []list.Item) list.Model {
 	delegate := relativeLineDelegate{
@@ -107,8 +141,8 @@ func itemStyles() list.DefaultItemStyles {
 	styles.DimmedTitle = styles.DimmedTitle.Foreground(colors.ListItemDimForeground)
 	styles.FilterMatch = styles.FilterMatch.Foreground(colors.ListFilterMatchForeground).Bold(true)
 	styles.SelectedTitle = styles.SelectedTitle.
-		// Foreground(colors.ListSelectedForeground).
-		// Background(colors.ListSelectedBackground).
+		Foreground(colors.PathForeground).
+		BorderForeground(colors.ListCursorIndicator).
 		Bold(true)
 	styles.SelectedDesc = styles.SelectedTitle
 
@@ -116,31 +150,11 @@ func itemStyles() list.DefaultItemStyles {
 }
 
 func renderStatusLine(path string, status string, statusIsError bool, jumpMulti int, selectionCount int) string {
-	hints := []string{
-		keyHint("Enter", "cd+quit"),
-		keyHint("l", "cd"),
-		keyHint("o", "open"),
-		keyHint("h", "prev"),
-		keyHint("y", "copy"),
-		keyHint("p", "paste"),
-		keyHint("n", "new"),
-	}
-	if selectionCount == 0 {
-		hints = append(hints, keyHint("r", "rename"))
-	}
-	hints = append(hints,
-		keyHint("d", "delete"),
-		keyHint("v", "select"),
-		keyHint("Tab", "hidden"),
-		keyHint("q", "quit"),
-	)
-	keyHints := strings.Join(hints, "  ")
-
 	mode := fmt.Sprintf("%d", jumpMulti)
 	if selectionCount > 0 {
 		mode = keyStyle.Render(fmt.Sprintf("SELECT %d", selectionCount))
 	}
-	base := fmt.Sprintf("%s  |  %s  |  %s", pathStyle.Render(path), keyHints, mode)
+	base := fmt.Sprintf("%s  |  %s  |  %s", pathStyle.Render(path), keyHint("Ctrl+H", "help"), mode)
 	if status == "" {
 		return base
 	}

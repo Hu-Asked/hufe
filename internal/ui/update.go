@@ -60,11 +60,14 @@ type deleteFinishedMsg struct {
 }
 
 func (m *Model) Init() tea.Cmd {
-	return nil
+	return nextPywalTick()
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case pywalTickMsg:
+		m.refreshPywalScheme()
+		return m, nextPywalTick()
 	case tea.KeyMsg:
 		model, cmd := m.handleKey(msg)
 		m.refreshPreview()
@@ -183,6 +186,20 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.creation.err = nil
 			return m, cmd
 		}
+	}
+
+	if m.showHelp {
+		switch msg.String() {
+		case "ctrl+h", "esc":
+			m.showHelp = false
+		}
+		return m, nil
+	}
+
+	if msg.String() == "ctrl+h" {
+		m.jumpMulti = 0
+		m.showHelp = true
+		return m, nil
 	}
 
 	if msg.String() == "tab" {

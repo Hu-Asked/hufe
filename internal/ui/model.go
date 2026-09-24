@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -24,8 +25,12 @@ type Model struct {
 	pathsToCopy     []string
 	history         []selectionHistoryEntry
 	showHidden      bool
+	showHelp        bool
 	selectionMode   bool
 	selectionAnchor int
+	pywalPath       string
+	pywalSeen       bool
+	pywalInfo       os.FileInfo
 
 	previewWidth       int
 	previewHeight      int
@@ -105,17 +110,21 @@ func NewModel(startDir string) (*Model, error) {
 		return nil, err
 	}
 
+	applyColorScheme(defaultColors)
 	l := newList(itemsFromEntries(entries))
 	ti := textinput.New()
 	ti.Placeholder = "Search..."
 	ti.CharLimit = 156
 	ti.Width = 20
+	styleTextInput(&ti)
 
 	m := &Model{
 		list:        l,
 		cwd:         startDir,
 		searchInput: ti,
+		pywalPath:   pywalColorsPath(),
 	}
+	m.refreshPywalScheme()
 	m.updateTitle()
 	m.refreshPreview()
 

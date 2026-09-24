@@ -13,6 +13,7 @@ import (
 
 func (m *Model) handleCreate() tea.Cmd {
 	input := textinput.New()
+	styleTextInput(&input)
 	input.Prompt = ""
 	input.CharLimit = 255
 	input.Width = max(10, min(50, m.windowWidth-14))
