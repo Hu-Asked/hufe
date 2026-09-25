@@ -33,6 +33,9 @@ func (d relativeLineDelegate) Render(w io.Writer, m list.Model, index int, listI
 	}
 
 	numStr := fmt.Sprintf("%2d ", relative)
+	if index == currentIdx {
+		numStr = "   "
+	}
 
 	entryItem, ok := listItem.(item)
 	if !ok {
@@ -65,14 +68,14 @@ func (d relativeLineDelegate) Render(w io.Writer, m list.Model, index int, listI
 	totalWidth := m.Width()
 	numberRendered := numberStyle.Render(numStr)
 	numberWidth := lipgloss.Width(numberRendered)
-	iconWidth := lipgloss.Width(itemIcon.Icon) + 1
+	iconRendered := iconStyle.Render(itemIcon.Icon + " ")
+	iconWidth := lipgloss.Width(iconRendered)
 	textRendered := textStyle.
 		MaxWidth(max(0, totalWidth-numberWidth-iconWidth)).
 		Inline(true).
 		Render(text)
 	paddingWidth := max(0, totalWidth-numberWidth-lipgloss.Width(textRendered)-iconWidth)
 	padding := backgroundStyle.Render(strings.Repeat(" ", paddingWidth))
-	iconRendered := iconStyle.Render(itemIcon.Icon)
 
-	fmt.Fprint(w, numberRendered+textRendered+padding+iconRendered)
+	fmt.Fprint(w, numberRendered+iconRendered+textRendered+padding)
 }
