@@ -35,6 +35,7 @@ func (m *Model) refreshPreview() {
 	}
 
 	m.previewPath = entry.Path
+	m.stopImagePreview()
 	m.previewName = entry.Name
 	m.previewIsDir = entry.IsDir
 	m.previewEntries = nil
@@ -44,6 +45,10 @@ func (m *Model) refreshPreview() {
 	m.previewErr = nil
 
 	if !entry.IsDir {
+		if isImagePath(entry.Path) {
+			m.startImagePreview(entry.Path)
+			return
+		}
 		lines, truncated, err := readFilePreview(entry.Path)
 		if errors.Is(err, errUnsupportedPreview) {
 			m.previewUnsupported = true
@@ -72,6 +77,7 @@ func (m *Model) refreshPreview() {
 }
 
 func (m *Model) clearPreview() {
+	m.stopImagePreview()
 	m.previewPath = ""
 	m.previewName = ""
 	m.previewIsDir = false

@@ -35,8 +35,10 @@ func main() {
 		// fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-
-	if _, err := tea.NewProgram(m, tea.WithAltScreen()).Run(); err != nil {
+	_, runErr := tea.NewProgram(m, tea.WithAltScreen()).Run()
+	fmt.Print(m.KittyImageClear())
+	m.Close()
+	if runErr != nil {
 		// fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

@@ -60,11 +60,14 @@ type deleteFinishedMsg struct {
 }
 
 func (m *Model) Init() tea.Cmd {
-	return nextPywalTick()
+	return tea.Batch(nextPywalTick(), waitForImagePreview(m.previewImageCh))
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case imagePreviewMsg:
+		m.acceptImagePreview(msg)
+		return m, waitForImagePreview(m.previewImageCh)
 	case pywalTickMsg:
 		m.refreshPywalScheme()
 		return m, nextPywalTick()

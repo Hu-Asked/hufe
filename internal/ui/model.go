@@ -42,6 +42,13 @@ type Model struct {
 	previewTruncated   bool
 	previewUnsupported bool
 	previewErr         error
+	previewImage       bool
+	previewImageFile   string
+	previewImageCancel context.CancelFunc
+	previewImageCh     chan imagePreviewMsg
+	previewImageSeq    uint64
+	kittyGraphics      bool
+	kittyImageID       uint32
 
 	searchInput     textinput.Model
 	searchMode      bool
@@ -119,10 +126,13 @@ func NewModel(startDir string) (*Model, error) {
 	styleTextInput(&ti)
 
 	m := &Model{
-		list:        l,
-		cwd:         startDir,
-		searchInput: ti,
-		pywalPath:   pywalColorsPath(),
+		list:           l,
+		cwd:            startDir,
+		searchInput:    ti,
+		pywalPath:      pywalColorsPath(),
+		previewImageCh: make(chan imagePreviewMsg, 16),
+		kittyGraphics:  os.Getenv("TERM") == "xterm-kitty",
+		kittyImageID:   newKittyImageID(),
 	}
 	m.refreshPywalScheme()
 	m.updateTitle()

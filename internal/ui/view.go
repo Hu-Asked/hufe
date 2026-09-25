@@ -25,7 +25,7 @@ func (m *Model) View() string {
 	} else if m.showHelp {
 		popup = m.helpView()
 	} else {
-		return base
+		return base + m.kittyImageSuffix(true)
 	}
 
 	width := m.windowWidth
@@ -36,7 +36,7 @@ func (m *Model) View() string {
 	if height <= 0 {
 		height = lipgloss.Height(base)
 	}
-	return overlayCentered(base, popup, width, height)
+	return overlayCentered(base, popup, width, height) + m.kittyImageSuffix(false)
 }
 
 func (m *Model) helpView() string {
@@ -374,6 +374,15 @@ func (m *Model) previewLines(height int) []string {
 		return message(fmt.Sprintf("Unable to read %s: %v", kind, m.previewErr), statusErrorStyle)
 	}
 	if !m.previewIsDir {
+		if m.previewImage {
+			if !m.kittyGraphics {
+				return message("Image preview requires Kitty", hintStyle)
+			}
+			if m.previewImageFile == "" {
+				return message("Loading image…", hintStyle)
+			}
+			return nil
+		}
 		if m.previewUnsupported {
 			return message("Binary or non-text file", hintStyle)
 		}
