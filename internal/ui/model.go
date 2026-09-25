@@ -44,6 +44,7 @@ type Model struct {
 	previewErr         error
 	previewImage       bool
 	previewImageFile   string
+	previewImageTemp   bool
 	previewImageCancel context.CancelFunc
 	previewImageCh     chan imagePreviewMsg
 	previewImageSeq    uint64

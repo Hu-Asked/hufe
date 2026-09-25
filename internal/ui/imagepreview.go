@@ -29,8 +29,13 @@ const (
 type imagePreviewMsg struct {
 	path string
 	seq  uint64
-	png  []byte
+	data imagePreviewData
 	err  error
+}
+
+type imagePreviewData struct {
+	file string
+	png  []byte
 }
 
 func isImagePath(path string) bool {
@@ -61,9 +66,9 @@ func (m *Model) startImagePreview(path string) {
 	ch := m.previewImageCh
 	seq := m.previewImageSeq
 	go func() {
-		png, err := decodePreviewImage(ctx, path)
+		data, err := decodePreviewImage(ctx, path)
 		select {
-		case ch <- imagePreviewMsg{path: path, seq: seq, png: png, err: err}:
+		case ch <- imagePreviewMsg{path: path, seq: seq, data: data, err: err}:
 		case <-ctx.Done():
 		}
 	}()
@@ -75,10 +80,11 @@ func (m *Model) stopImagePreview() {
 		m.previewImageCancel()
 		m.previewImageCancel = nil
 	}
-	if m.previewImageFile != "" {
+	if m.previewImageTemp {
 		_ = os.Remove(m.previewImageFile)
-		m.previewImageFile = ""
 	}
+	m.previewImageFile = ""
+	m.previewImageTemp = false
 	m.previewImage = false
 }
 
@@ -94,12 +100,17 @@ func (m *Model) acceptImagePreview(msg imagePreviewMsg) {
 		m.previewErr = msg.err
 		return
 	}
+	if msg.data.file != "" {
+		m.previewImageFile = msg.data.file
+		m.previewImageTemp = false
+		return
+	}
 	f, err := os.CreateTemp("", "hufe-preview-*.png")
 	if err != nil {
 		m.previewErr = err
 		return
 	}
-	if _, err = f.Write(msg.png); err == nil {
+	if _, err = f.Write(msg.data.png); err == nil {
 		err = f.Close()
 	} else {
 		_ = f.Close()
@@ -110,27 +121,54 @@ func (m *Model) acceptImagePreview(msg imagePreviewMsg) {
 		return
 	}
 	m.previewImageFile = f.Name()
+	m.previewImageTemp = true
 }
 
 func waitForImagePreview(ch <-chan imagePreviewMsg) tea.Cmd {
 	return func() tea.Msg { return <-ch }
 }
 
-func decodePreviewImage(ctx context.Context, path string) ([]byte, error) {
+func decodePreviewImage(ctx context.Context, path string) (imagePreviewData, error) {
 	info, err := os.Stat(path)
 	if err != nil {
-		return nil, err
+		return imagePreviewData{}, err
 	}
 	if !info.Mode().IsRegular() || info.Size() > maxImageBytes {
-		return nil, fmt.Errorf("image is not a regular file or exceeds %d MiB", maxImageBytes>>20)
+		return imagePreviewData{}, fmt.Errorf("image is not a regular file or exceeds %d MiB", maxImageBytes>>20)
 	}
 
 	switch strings.ToLower(filepath.Ext(path)) {
-	case ".png", ".jpg", ".jpeg", ".gif":
-		return decodeNativePreviewImage(ctx, path)
+	case ".png":
+		f, err := os.Open(path)
+		if err != nil {
+			return imagePreviewData{}, err
+		}
+		config, err := png.DecodeConfig(f)
+		_ = f.Close()
+		if err != nil {
+			return imagePreviewData{}, err
+		}
+		if err := checkImageDimensions(config); err != nil {
+			return imagePreviewData{}, err
+		}
+		if err := ctx.Err(); err != nil {
+			return imagePreviewData{}, err
+		}
+		return imagePreviewData{file: path}, nil
+	case ".jpg", ".jpeg", ".gif":
+		data, err := decodeNativePreviewImage(ctx, path)
+		return imagePreviewData{png: data}, err
 	default:
-		return decodeMagickPreviewImage(ctx, path)
+		data, err := decodeMagickPreviewImage(ctx, path)
+		return imagePreviewData{png: data}, err
 	}
+}
+
+func checkImageDimensions(config image.Config) error {
+	if config.Width <= 0 || config.Height <= 0 || int64(config.Width)*int64(config.Height) > maxImagePixels {
+		return fmt.Errorf("image dimensions exceed preview limit")
+	}
+	return nil
 }
 
 func decodeNativePreviewImage(ctx context.Context, path string) ([]byte, error) {
@@ -143,8 +181,8 @@ func decodeNativePreviewImage(ctx context.Context, path string) ([]byte, error) 
 	if err != nil {
 		return nil, err
 	}
-	if config.Width <= 0 || config.Height <= 0 || int64(config.Width)*int64(config.Height) > maxImagePixels {
-		return nil, fmt.Errorf("image dimensions exceed preview limit")
+	if err := checkImageDimensions(config); err != nil {
+		return nil, err
 	}
 	f, err = os.Open(path)
 	if err != nil {
@@ -179,14 +217,14 @@ func encodePreviewPNG(ctx context.Context, img image.Image) ([]byte, error) {
 		img = resized
 	}
 	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
+	if err := (&png.Encoder{CompressionLevel: png.BestSpeed}).Encode(&buf, img); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
 }
 
 func decodeMagickPreviewImage(ctx context.Context, path string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "magick", path+"[0]", "-auto-orient", "-resize", "1024x1024>", "png:-")
+	cmd := exec.CommandContext(ctx, "magick", path+"[0]", "-auto-orient", "-resize", "1024x1024>", "-define", "png:compression-level=1", "png:-")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	data, err := cmd.Output()
